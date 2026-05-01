@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Facility Repair</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#2d7670",
+              "background-light": "#f9fafb",
+              "background-dark": "#192438",
+              "surface-light": "#ffffff",
+              "surface-dark": "#1f2937",
+            },
+            fontFamily: {
+              "display": ["Manrope", "Noto Sans", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+            boxShadow: {
+                'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                'card': '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1)',
+            }
+          },
+        },
+      }
+    </script>
+<style>.hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-900 dark:text-gray-100 antialiased selection:bg-primary selection:text-white">
+<header class="sticky top-0 z-50 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-800/50 transition-colors duration-300">
+<div class="flex items-center justify-between px-4 py-3 h-14">
+<button class="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 active:scale-95 transition-all text-gray-800 dark:text-white">
+<span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight text-center text-gray-900 dark:text-white flex-1 pr-10">设施报修</h1>
+</div>
+</header>
+<main class="flex flex-col w-full max-w-lg mx-auto p-4 space-y-6 pb-40">
+<section class="flex flex-col gap-3">
+<div class="flex justify-between items-baseline px-1">
+<h2 class="text-base font-bold text-gray-900 dark:text-white">故障类型</h2>
+<span class="text-xs font-medium text-primary cursor-pointer hover:opacity-80">查看常见问题</span>
+</div>
+<div class="flex gap-3 overflow-x-auto hide-scrollbar pb-1 -mx-4 px-4 snap-x">
+<button class="group flex flex-col items-center justify-center min-w-[88px] h-[88px] shrink-0 gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark shadow-card border border-gray-100 dark:border-gray-700 hover:border-primary/30 transition-all snap-start">
+<div class="size-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">home_repair_service</span>
+</div>
+<span class="text-gray-600 dark:text-gray-300 text-sm font-medium">水电门窗等</span>
+</button>
+<button class="group flex flex-col items-center justify-center min-w-[88px] h-[88px] shrink-0 gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark shadow-card border border-gray-100 dark:border-gray-700 hover:border-primary/30 transition-all snap-start">
+<div class="size-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">router</span>
+</div>
+<span class="text-gray-600 dark:text-gray-300 text-sm font-medium">多媒体</span>
+</button>
+<button class="group flex flex-col items-center justify-center min-w-[88px] h-[88px] shrink-0 gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark shadow-card border border-gray-100 dark:border-gray-700 hover:border-primary/30 transition-all snap-start">
+<div class="size-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">ac_unit</span>
+</div>
+<span class="text-gray-600 dark:text-gray-300 text-sm font-medium">空调</span>
+</button>
+<button class="group flex flex-col items-center justify-center min-w-[88px] h-[88px] shrink-0 gap-2 rounded-2xl bg-surface-light dark:bg-surface-dark shadow-card border border-gray-100 dark:border-gray-700 hover:border-primary/30 transition-all snap-start">
+<div class="size-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">more_horiz</span>
+</div>
+<span class="text-gray-600 dark:text-gray-300 text-sm font-medium">其他</span>
+</button>
+</div>
+</section>
+<section class="bg-surface-light dark:bg-surface-dark rounded-2xl shadow-soft p-5 border border-gray-100 dark:border-gray-800">
+<label class="flex flex-col gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">location_on</span>
+<span class="text-base font-bold text-gray-900 dark:text-white">故障地点</span>
+</div>
+<div class="relative group">
+<input class="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-base rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary block p-4 pl-4 pr-12 transition-all placeholder:text-gray-400" placeholder="请输入或选择教室 (例如: 302教室)" type="text"/>
+<div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+<span class="material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors">search</span>
+</div>
+</div>
+<div class="flex gap-2 mt-1">
+<span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary cursor-pointer hover:bg-primary/20 transition-colors">302教室</span>
+<span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">办公楼2F</span>
+</div>
+</label>
+</section>
+<section class="bg-surface-light dark:bg-surface-dark rounded-2xl shadow-soft p-5 border border-gray-100 dark:border-gray-800">
+<label class="flex flex-col gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">description</span>
+<span class="text-base font-bold text-gray-900 dark:text-white">故障描述</span>
+</div>
+<textarea class="w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-base rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary block p-4 transition-all placeholder:text-gray-400 resize-none" placeholder="请详细描述故障情况，以便维修人员快速处理..." rows="4"></textarea>
+</label>
+</section>
+<section class="bg-surface-light dark:bg-surface-dark rounded-2xl shadow-soft p-5 border border-gray-100 dark:border-gray-800">
+<div class="flex justify-between items-center mb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">photo_camera</span>
+<span class="text-base font-bold text-gray-900 dark:text-white">现场照片</span>
+</div>
+<span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">最多3张</span>
+</div>
+<div class="grid grid-cols-3 gap-3">
+<div class="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
+<img alt="Uploaded photo showing a broken light fixture hanging from a ceiling" class="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-500" data-alt="Close up of a broken ceiling light fixture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfSbJcr0bBtAD2VpMjwZDsFaGuEg0FB5-af0doSqmDj_Xuz-SDJ2bOqvA0boE44d7R0J-YtairLe0kwxcXYnql47JNqZyBJI4FtyT4SGt6YG-_K-0XMNrcX9_wVgPrTMe3wcBwn7vi--OXRjUu9-LN6NPRt0xiQh46W9E5en1h1sza2iTJdTW7pWDZF03m4YqsXz0mcBXLx3q5QxstvpmfSB9OCyMN9MqcvqDbuoQgZymOG1f4anr9yJMobJIMofOPC8-ggPWWlSI"/>
+<button class="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white rounded-full p-1 backdrop-blur-sm transition-colors">
+<span class="material-symbols-outlined text-[16px] block">close</span>
+</button>
+</div>
+<button class="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 flex flex-col items-center justify-center gap-1 transition-all group">
+<span class="material-symbols-outlined text-gray-400 group-hover:text-primary text-[28px] transition-colors">add_a_photo</span>
+<span class="text-[10px] text-gray-400 group-hover:text-primary font-medium transition-colors">上传</span>
+</button>
+</div>
+</section>
+<div class="text-center pt-2">
+<p class="text-xs text-gray-400 dark:text-gray-500">
+                Pingtan No. 2 Middle School • Campus Services
+            </p>
+</div>
+</main>
+<div class="fixed bottom-0 left-0 w-full bg-surface-light/80 dark:bg-surface-dark/95 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 p-4 pb-8 z-40">
+<button class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg shadow-primary/25 active:scale-[0.98] transition-all duration-200">
+<span class="material-symbols-outlined">send</span>
+            提交报修
+        </button>
+</div>
+</body></html>
