@@ -6,6 +6,7 @@ import Icon from '@/components/Icon'
 interface HeaderProps {
   title: string
   showBack?: boolean
+  fallbackHref?: string
   rightIcon?: string
   rightBadge?: boolean
   onRightClick?: () => void
@@ -14,18 +15,35 @@ interface HeaderProps {
 export default function Header({
   title,
   showBack = false,
+  fallbackHref = '/dashboard',
   rightIcon,
   rightBadge,
   onRightClick,
 }: HeaderProps) {
   const router = useRouter()
 
+  const handleBack = () => {
+    const currentPath = window.location.pathname
+
+    if (window.history.length > 1) {
+      router.back()
+      window.setTimeout(() => {
+        if (window.location.pathname === currentPath) {
+          router.replace(fallbackHref)
+        }
+      }, 500)
+      return
+    }
+
+    router.replace(fallbackHref)
+  }
+
   return (
     <header className="sticky top-0 z-50 bg-background-light/90 backdrop-blur-md border-b border-gray-100">
       <div className="flex items-center justify-between px-4 py-3 h-14">
         {showBack ? (
           <button
-            onClick={() => router.back()}
+            onClick={handleBack}
             className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 active:scale-95 transition-all text-gray-800"
           >
             <Icon name="arrow_back" className="text-[24px]" />

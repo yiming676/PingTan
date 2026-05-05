@@ -34,6 +34,7 @@ import {
 import { toDateString } from '@/lib/utils'
 import Header from '@/components/Header'
 import Icon from '@/components/Icon'
+import ImagePreviewModal from '@/components/ImagePreviewModal'
 import Toast from '@/components/Toast'
 import type {
   BookingWithProfile,
@@ -111,8 +112,10 @@ export default function AdminPage() {
   const [menuForm, setMenuForm] = useState(emptyMenuForm)
   const [selectedBookingDate, setSelectedBookingDate] = useState('')
   const [selectedBookingMeal, setSelectedBookingMeal] = useState<MealType>('breakfast')
+  const [showAllBookingDates, setShowAllBookingDates] = useState(false)
   const [repairResultForm, setRepairResultForm] = useState<Record<string, { text: string; imageUrl: string; imagePath: string }>>({})
   const [repairUploadTicketId, setRepairUploadTicketId] = useState<string | null>(null)
+  const [previewImage, setPreviewImage] = useState<{ url: string; alt: string; fileName?: string } | null>(null)
   const [noticeForm, setNoticeForm] = useState({
     title: '',
     content: '',
@@ -414,7 +417,7 @@ export default function AdminPage() {
 
     await createNotification(supabase, {
       title: '维修已完成',
-      content: `${ticket.location} 的维修申请已处理完成，请查看维修结果。`,
+      content: `${ticket.location} 的维修申请已处理完成，请进入设施报修的“我的工单”查看维修结果。`,
       type: 'info',
       targetUserId: ticket.user_id,
     })
@@ -498,6 +501,10 @@ export default function AdminPage() {
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [bookings])
 
+  const visibleBookingDateStats = useMemo(() => (
+    showAllBookingDates ? bookingDateStats : bookingDateStats.slice(0, 6)
+  ), [bookingDateStats, showAllBookingDates])
+
   const selectedMealBookings = useMemo(() => (
     bookings.filter((booking) => (
       booking.status === 'booked'
@@ -539,6 +546,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-background-light text-gray-900 pb-12">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />
       <Header title="管理后台" showBack />
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-5">
@@ -608,7 +616,7 @@ export default function AdminPage() {
                 <p className="text-xs text-gray-400 text-center py-6">暂无报饭数据</p>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
-                  {bookingDateStats.map((item) => (
+                  {visibleBookingDateStats.map((item) => (
                     <button
                       key={item.date}
                       type="button"
@@ -623,6 +631,16 @@ export default function AdminPage() {
                     </button>
                   ))}
                 </div>
+              )}
+              {bookingDateStats.length > 6 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllBookingDates((value) => !value)}
+                  className="mt-3 flex h-10 w-full items-center justify-center gap-1 rounded-xl bg-gray-50 text-xs font-bold text-gray-600"
+                >
+                  <Icon name={showAllBookingDates ? 'expand_less' : 'expand_more'} className="text-[18px]" />
+                  {showAllBookingDates ? '收起历史日期' : `展开全部日期（${bookingDateStats.length} 天）`}
+                </button>
               )}
               {selectedBookingDate && (
                 <div className="mt-4 border-t border-gray-100 pt-3">
@@ -729,7 +747,14 @@ export default function AdminPage() {
         )}
 
         {currentTab === 'repair' && permissions.repair && (
-          <section className="space-y-3">
+          <section
+            className="space-y-3 [&_img]:cursor-zoom-in"
+            onClick={(event) => {
+              const target = event.target
+              if (!(target instanceof HTMLImageElement) || !target.src) return
+              setPreviewImage({ url: target.src, alt: target.alt || '报修图片' })
+            }}
+          >
             <h2 className="text-sm font-bold text-gray-500 px-1">报修工单</h2>
             <input ref={repairResultInputRef} type="file" accept="image/*" className="hidden" onChange={handleRepairResultImageChange} />
             {tickets.length === 0 ? (
@@ -747,6 +772,18 @@ export default function AdminPage() {
                   </select>
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">{ticket.description}</p>
+                {ticket.repair_images && ticket.repair_images.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {ticket.repair_images.map((image, index) => (
+                      <img
+                        key={image.id}
+                        alt={`现场照片 ${index + 1}`}
+                        className="aspect-square w-full rounded-lg object-cover"
+                        src={image.image_url}
+                      />
+                    ))}
+                  </div>
+                )}
                 {ticket.result_text ? (
                   <div className="rounded-xl bg-green-50 p-3">
                     <p className="text-xs font-bold text-green-700">维修结果</p>

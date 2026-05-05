@@ -59,6 +59,7 @@ export interface RepairTicket {
   completed_at: string | null
   created_at: string
   updated_at: string
+  repair_images?: RepairImage[]
 }
 
 export interface RepairImage {

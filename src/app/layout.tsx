@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import RoutePrefetcher from "@/components/RoutePrefetcher"
 
 export const metadata: Metadata = {
   title: "平潭二中移动校园",
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="h-full antialiased">
       <body className="min-h-full bg-background-light text-text-main font-display">
+        <RoutePrefetcher />
         {children}
       </body>
     </html>

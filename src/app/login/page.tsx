@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import Icon from '@/components/Icon'
 import Toast from '@/components/Toast'
-import { normalizePhoneDigits } from '@/lib/utils'
+import { isEmailIdentifier, normalizePhoneDigits } from '@/lib/utils'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,56 +15,80 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
-  // 登录表单
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
 
-  // 注册表单
   const [regEmail, setRegEmail] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regName, setRegName] = useState('')
-
+  const [regEmailConfirmed, setRegEmailConfirmed] = useState(false)
   const [regPhone, setRegPhone] = useState('')
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!identifier || !password) {
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault()
+
+    if (!identifier.trim() || !password) {
       setToast({ message: '请填写邮箱/手机号和密码', type: 'error' })
       return
     }
+
     setLoading(true)
     const { error } = await signIn(identifier, password)
     setLoading(false)
+
     if (error) {
-      setToast({ message: '登录失败：' + error.message, type: 'error' })
+      setToast({ message: `登录失败：${error.message}`, type: 'error' })
     } else {
       router.push('/dashboard')
     }
   }
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!regEmail || !regPassword || !regName) {
-      setToast({ message: '请填写姓名、邮箱和密码', type: 'error' })
+  const handleRegister = async (event: React.FormEvent) => {
+    event.preventDefault()
+
+    const email = regEmail.trim()
+    const phone = normalizePhoneDigits(regPhone)
+
+    if (!regName.trim() || !regPassword) {
+      setToast({ message: '请填写姓名和密码', type: 'error' })
       return
     }
-    if (regPhone && normalizePhoneDigits(regPhone).length < 6) {
-      setToast({ message: '请输入有效手机号，或留空', type: 'error' })
+
+    if (!email && !phone) {
+      setToast({ message: '请至少填写邮箱或手机号', type: 'error' })
       return
     }
+
+    if (email && !isEmailIdentifier(email)) {
+      setToast({ message: '请输入有效邮箱', type: 'error' })
+      return
+    }
+
+    if (email && !regEmailConfirmed) {
+      setToast({ message: '请确认邮箱填写正确', type: 'error' })
+      return
+    }
+
+    if (phone && !/^1\d{10}$/.test(phone)) {
+      setToast({ message: '请输入有效的 11 位手机号', type: 'error' })
+      return
+    }
+
     if (regPassword.length < 6) {
       setToast({ message: '密码至少需要 6 位', type: 'error' })
       return
     }
+
     setLoading(true)
-    const { error } = await signUp(regEmail, regPhone, regPassword, {
+    const { error } = await signUp(email, phone, regPassword, {
       name: regName,
     })
     setLoading(false)
+
     if (error) {
-      setToast({ message: '注册失败：' + error.message, type: 'error' })
+      setToast({ message: `注册失败：${error.message}`, type: 'error' })
     } else {
-      setToast({ message: '注册成功！', type: 'success' })
+      setToast({ message: '注册成功', type: 'success' })
       router.push('/dashboard')
     }
   }
@@ -74,11 +98,9 @@ export default function LoginPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <main className="w-full max-w-[420px] bg-surface-light rounded-3xl shadow-soft border border-white/50 overflow-hidden relative">
-        {/* Decorative gradient */}
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
 
         <div className="relative z-10 flex flex-col p-6 sm:p-8">
-          {/* Header */}
           <div className="flex flex-col items-center gap-6 mb-8">
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-primary to-emerald-400 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200" />
@@ -89,27 +111,22 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="text-center space-y-1">
-              <h1 className="text-2xl font-bold text-text-main">
-                平潭二中移动校园
-              </h1>
+              <h1 className="text-2xl font-bold text-text-main">平潭二中移动校园</h1>
               <p className="text-text-muted text-sm font-medium">
-                {isRegister ? '创建您的教职工账户' : '欢迎回来，请登录您的教职工账户'}
+                {isRegister ? '创建教职工账号' : '欢迎回来，请登录教职工账号'}
               </p>
             </div>
           </div>
 
-          {/* Login Form */}
           {!isRegister ? (
             <form className="flex flex-col gap-5" onSubmit={handleLogin}>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-main ml-1">
-                  邮箱或手机号
-                </label>
+                <label className="text-xs font-semibold text-text-main ml-1">邮箱或手机号</label>
                 <div className="relative flex items-center group">
                   <Icon name="mail" className="absolute left-4 text-text-muted group-focus-within:text-primary transition-colors" />
                   <input
                     value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
+                    onChange={(event) => setIdentifier(event.target.value)}
                     className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium"
                     placeholder="请输入邮箱或手机号"
                     type="text"
@@ -118,14 +135,12 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-main ml-1">
-                  密码
-                </label>
+                <label className="text-xs font-semibold text-text-main ml-1">密码</label>
                 <div className="relative flex items-center group">
                   <Icon name="lock" className="absolute left-4 text-text-muted group-focus-within:text-primary transition-colors" />
                   <input
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(event) => setPassword(event.target.value)}
                     className="w-full h-12 pl-11 pr-12 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium"
                     placeholder="请输入密码"
                     type={showPassword ? 'text' : 'password'}
@@ -156,30 +171,61 @@ export default function LoginPage() {
               </button>
             </form>
           ) : (
-            /* Register Form */
             <form className="flex flex-col gap-4" onSubmit={handleRegister}>
-
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-text-main ml-1">姓名 *</label>
                 <div className="relative flex items-center group">
                   <Icon name="person" className="absolute left-4 text-text-muted group-focus-within:text-primary transition-colors" />
-                  <input value={regName} onChange={(e) => setRegName(e.target.value)} className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium" placeholder="请输入姓名" type="text" />
+                  <input
+                    value={regName}
+                    onChange={(event) => setRegName(event.target.value)}
+                    className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium"
+                    placeholder="请输入姓名"
+                    type="text"
+                  />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-main ml-1">邮箱 *</label>
+                <label className="text-xs font-semibold text-text-main ml-1">邮箱</label>
                 <div className="relative flex items-center group">
                   <Icon name="mail" className="absolute left-4 text-text-muted group-focus-within:text-primary transition-colors" />
-                  <input value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium" placeholder="请输入邮箱" type="email" required />
+                  <input
+                    value={regEmail}
+                    onChange={(event) => {
+                      setRegEmail(event.target.value)
+                      if (!event.target.value.trim()) setRegEmailConfirmed(false)
+                    }}
+                    className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium"
+                    placeholder="请输入邮箱"
+                    type="email"
+                  />
                 </div>
               </div>
 
+              {regEmail.trim() && (
+                <label className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                  <input
+                    checked={regEmailConfirmed}
+                    onChange={(event) => setRegEmailConfirmed(event.target.checked)}
+                    className="mt-0.5 size-4 rounded border-amber-300 accent-primary"
+                    type="checkbox"
+                  />
+                  <span>我已确认邮箱填写正确，注册后不可自行修改。</span>
+                </label>
+              )}
+
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-main ml-1">手机号（选填）</label>
+                <label className="text-xs font-semibold text-text-main ml-1">手机号</label>
                 <div className="relative flex items-center group">
                   <Icon name="phone" className="absolute left-4 text-text-muted group-focus-within:text-primary transition-colors" />
-                  <input value={regPhone} onChange={(e) => setRegPhone(e.target.value)} className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium" placeholder="填写后可用手机号登录" type="tel" />
+                  <input
+                    value={regPhone}
+                    onChange={(event) => setRegPhone(event.target.value)}
+                    className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium"
+                    placeholder="请输入 11 位手机号"
+                    type="tel"
+                  />
                 </div>
               </div>
 
@@ -187,17 +233,33 @@ export default function LoginPage() {
                 <label className="text-xs font-semibold text-text-main ml-1">密码 *</label>
                 <div className="relative flex items-center group">
                   <Icon name="lock" className="absolute left-4 text-text-muted group-focus-within:text-primary transition-colors" />
-                  <input value={regPassword} onChange={(e) => setRegPassword(e.target.value)} className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium" placeholder="请设置密码（至少6位）" type="password" />
+                  <input
+                    value={regPassword}
+                    onChange={(event) => setRegPassword(event.target.value)}
+                    className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium"
+                    placeholder="请设置密码（至少 6 位）"
+                    type="password"
+                  />
                 </div>
               </div>
 
-              <button type="submit" disabled={loading} className="mt-2 w-full h-12 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-base shadow-lg shadow-primary/30 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50">
-                {loading ? <Icon name="progress_activity" className="animate-spin text-lg" /> : <><span>注册账号</span><Icon name="how_to_reg" className="text-lg" /></>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-2 w-full h-12 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-base shadow-lg shadow-primary/30 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <Icon name="progress_activity" className="animate-spin text-lg" />
+                ) : (
+                  <>
+                    <span>注册账号</span>
+                    <Icon name="how_to_reg" className="text-lg" />
+                  </>
+                )}
               </button>
             </form>
           )}
 
-          {/* Toggle */}
           <div className="mt-8 flex flex-col items-center gap-4">
             <div className="relative w-full text-center">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
@@ -208,6 +270,7 @@ export default function LoginPage() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => setIsRegister(!isRegister)}
               className="inline-flex items-center justify-center w-full h-12 rounded-xl border border-gray-200 bg-transparent hover:bg-gray-50 text-text-main font-semibold transition-colors"
             >
@@ -215,7 +278,6 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* Version */}
           <div className="mt-8 text-center">
             <p className="text-xs text-gray-400">© 2024 平潭二中信息化中心 v2.1.0</p>
           </div>

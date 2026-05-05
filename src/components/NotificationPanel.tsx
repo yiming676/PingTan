@@ -2,31 +2,52 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { fetchNotifications } from '@/lib/services/campus'
+import { fetchNotifications, markNotificationsRead } from '@/lib/services/campus'
 import Icon from '@/components/Icon'
 import type { Notification } from '@/lib/types'
 
 interface NotificationPanelProps {
   open: boolean
   onClose: () => void
+  onNotificationsRead?: () => void
 }
 
-export default function NotificationPanel({ open, onClose }: NotificationPanelProps) {
+export default function NotificationPanel({ open, onClose, onNotificationsRead }: NotificationPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   const fetchData = useCallback(async () => {
-    setLoading(true)
     const { notifications } = await fetchNotifications(supabase, 20)
     setNotifications(notifications)
     setLoading(false)
-  }, [supabase])
+    const ids = notifications.map((notification) => notification.id)
+    const { error } = await markNotificationsRead(supabase, ids)
+    if (!error) onNotificationsRead?.()
+  }, [onNotificationsRead, supabase])
 
   useEffect(() => {
     if (!open) return
-    void fetchData()
-  }, [fetchData, open])
+
+    let active = true
+    setLoading(true)
+
+    const loadNotifications = async () => {
+      const { notifications } = await fetchNotifications(supabase, 20)
+      if (!active) return
+      setNotifications(notifications)
+      setLoading(false)
+      const ids = notifications.map((notification) => notification.id)
+      const { error } = await markNotificationsRead(supabase, ids)
+      if (!error && active) onNotificationsRead?.()
+    }
+
+    void loadNotifications()
+
+    return () => {
+      active = false
+    }
+  }, [onNotificationsRead, open, supabase])
 
   useEffect(() => {
     if (!open) return

@@ -16,20 +16,27 @@ import type {
 
 type Client = SupabaseClient
 
-export async function resolveLoginEmail(client: Client, identifier: string) {
-  const { data, error } = await client.rpc('resolve_login_email', {
-    login_identifier: identifier,
-  })
-
-  return { email: (data as string | null) ?? null, error }
-}
-
 export async function fetchProfile(client: Client, userId: string) {
   const { data, error } = await client
     .from('profiles')
     .select('*')
     .eq('id', userId)
     .single()
+
+  return { profile: (data as Profile | null) ?? null, error }
+}
+
+export async function updateOwnProfile(
+  client: Client,
+  payload: {
+    name: string
+    phone: string
+  }
+) {
+  const { data, error } = await client.rpc('update_own_profile', {
+    profile_name: payload.name,
+    profile_phone: payload.phone,
+  })
 
   return { profile: (data as Profile | null) ?? null, error }
 }
@@ -123,10 +130,25 @@ export async function fetchNotifications(client: Client, limit = 20) {
   return { notifications: (data as Notification[] | null) ?? [], error }
 }
 
+export async function fetchUnreadNotificationCount(client: Client) {
+  const { data, error } = await client.rpc('unread_notification_count')
+  return { count: Number(data ?? 0), error }
+}
+
+export async function markNotificationsRead(client: Client, notificationIds: string[]) {
+  const ids = Array.from(new Set(notificationIds)).filter(Boolean)
+  if (ids.length === 0) return { error: null }
+
+  const { error } = await client.rpc('mark_notifications_read', {
+    notification_ids: ids,
+  })
+  return { error }
+}
+
 export async function fetchMyTickets(client: Client, userId: string, limit = 10) {
   const { data, error } = await client
     .from('repair_tickets')
-    .select('*')
+    .select('*, repair_images(*)')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -309,7 +331,7 @@ export async function fetchAdminBookings(client: Client, limit = 120) {
 export async function fetchAdminTickets(client: Client, limit = 100) {
   const { data, error } = await client
     .from('repair_tickets')
-    .select('*, profiles(name, phone, email)')
+    .select('*, profiles(name, phone, email), repair_images(*)')
     .order('created_at', { ascending: false })
     .limit(limit)
 

@@ -24,6 +24,12 @@ const iconPaths: Record<string, ReactNode> = {
       <path d="M8 12h8" />
     </>
   ),
+  add: (
+    <>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </>
+  ),
   admin_panel_settings: (
     <>
       <path d="M12 3l7 3v5c0 4.5-2.7 8.4-7 10-4.3-1.6-7-5.5-7-10V6l7-3z" />
@@ -70,6 +76,13 @@ const iconPaths: Record<string, ReactNode> = {
       <path d="M14 11v6" />
       <path d="M6 7l1 14h10l1-14" />
       <path d="M9 7V4h6v3" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M5 21h14" />
     </>
   ),
   description: (
@@ -163,6 +176,7 @@ const iconPaths: Record<string, ReactNode> = {
       <circle cx="18" cy="12" r="1.5" />
     </>
   ),
+  remove: <path d="M5 12h14" />,
   notifications: (
     <>
       <path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16z" />

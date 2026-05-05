@@ -1,11 +1,62 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { fetchProfile as getProfile, resolveLoginEmail } from '@/lib/services/campus'
-import { formatPhoneForDisplay, isEmailIdentifier } from '@/lib/utils'
+import { fetchProfile as getProfile } from '@/lib/services/campus'
 import type { Profile } from '@/lib/types'
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
+
+const AUTH_TIMEOUT_MS = 10000
+
+function withTimeout<T>(request: T, message = 'Request timed out'): Promise<Awaited<T>> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), AUTH_TIMEOUT_MS)
+  })
+
+  return Promise.race([Promise.resolve(request), timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId)
+  }) as Promise<Awaited<T>>
+}
+
+async function postAuthApi<T>(path: string, payload: Record<string, unknown>) {
+  const response = await withTimeout(
+    fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+    'Auth server request timed out'
+  )
+  const body = (await response.json().catch(() => ({}))) as Partial<T> & { error?: string }
+
+  if (!response.ok) {
+    throw new Error(body.error || 'Auth server request failed')
+  }
+
+  return body as T
+}
+
+async function fetchAuthProfile() {
+  const response = await withTimeout(
+    fetch('/api/auth/profile', { cache: 'no-store' }),
+    'Profile server request timed out'
+  )
+
+  if (response.status === 401) return null
+
+  const body = (await response.json().catch(() => ({}))) as {
+    profile?: Profile | null
+    error?: string
+  }
+
+  if (!response.ok) {
+    throw new Error(body.error || 'Profile server request failed')
+  }
+
+  return body.profile ?? null
+}
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
@@ -14,31 +65,69 @@ export function useAuth() {
   const supabase = createClient()
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { profile } = await getProfile(supabase, userId)
-    setProfile(profile)
+    try {
+      const { profile, error } = await withTimeout(getProfile(supabase, userId), 'Profile request timed out')
+      if (!error && profile) {
+        setProfile(profile)
+        return
+      }
+    } catch {
+      // Fall back to the server endpoint below.
+    }
+
+    try {
+      setProfile(await fetchAuthProfile())
+    } catch {
+      setProfile(null)
+    }
   }, [supabase])
 
   useEffect(() => {
     const getSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
-        await fetchProfile(user.id)
+      try {
+        const {
+          data: { user },
+          error,
+        } = await withTimeout(supabase.auth.getUser(), 'Auth check timed out')
+
+        if (error) {
+          setUser(null)
+          setProfile(null)
+          return
+        }
+
+        setUser(user)
+        if (user) {
+          await fetchProfile(user.id)
+        } else {
+          setProfile(null)
+        }
+      } catch {
+        setUser(null)
+        setProfile(null)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     getSession()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, session: Session | null) => {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchProfile(session.user.id)
-        } else {
+        const nextUser = session?.user ?? null
+        setUser(nextUser)
+
+        try {
+          if (nextUser) {
+            await fetchProfile(nextUser.id)
+          } else {
+            setProfile(null)
+          }
+        } catch {
           setProfile(null)
+        } finally {
+          setLoading(false)
         }
-        setLoading(false)
       }
     )
 
@@ -46,17 +135,18 @@ export function useAuth() {
   }, [supabase, fetchProfile])
 
   const signIn = async (identifier: string, password: string) => {
-    const login = identifier.trim()
-    const { email: resolvedEmail, error: resolveError } = await resolveLoginEmail(supabase, login)
-    if (resolveError && !isEmailIdentifier(login)) return { error: resolveError }
-
-    const authEmail = resolvedEmail ?? (isEmailIdentifier(login) ? login : null)
-    if (!authEmail) {
-      return { error: new Error('未找到该手机号绑定的账号') }
+    try {
+      const { email } = await postAuthApi<{ email: string }>('/api/auth/resolve-login', {
+        identifier: identifier.trim(),
+      })
+      const { error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        'Login request timed out'
+      )
+      return { error }
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Login request failed') }
     }
-
-    const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password })
-    return { error }
   }
 
   const signUp = async (
@@ -65,25 +155,31 @@ export function useAuth() {
     password: string,
     metadata: { name: string; teacher_no?: string }
   ) => {
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          name: metadata.name,
-          email: email.trim(),
-          phone: formatPhoneForDisplay(phone),
-          teacher_no: metadata.teacher_no || '',
-        },
-      },
-    })
-    return { error }
+    try {
+      const { email: authEmail } = await postAuthApi<{ email: string }>('/api/auth/register', {
+        email,
+        phone,
+        password,
+        name: metadata.name,
+        teacher_no: metadata.teacher_no || '',
+      })
+      const { error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email: authEmail, password }),
+        'Registration request timed out'
+      )
+      return { error }
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Registration request failed') }
+    }
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
+    try {
+      await withTimeout(supabase.auth.signOut(), 'Sign out request timed out')
+    } finally {
+      setUser(null)
+      setProfile(null)
+    }
   }
 
   return { user, profile, loading, signIn, signUp, signOut }

@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { deleteRepairImageFile } from '@/lib/services/campus'
 import Icon from '@/components/Icon'
+import ImagePreviewModal from '@/components/ImagePreviewModal'
 import type { UploadedImage } from '@/lib/types'
 
 interface ImageUploaderProps {
@@ -24,10 +25,11 @@ export default function ImageUploader({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadSequenceRef = useRef(0)
   const [uploading, setUploading] = useState(false)
+  const [previewImage, setPreviewImage] = useState<{ url: string; alt: string; fileName?: string } | null>(null)
   const supabase = createClient()
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
     if (!files || files.length === 0) return
 
     const remaining = maxImages - images.length
@@ -54,14 +56,13 @@ export default function ImageUploader({
           .getPublicUrl(fileName)
         newImages.push({ url: urlData.publicUrl, path: fileName })
       } else {
-        onError?.('图片上传失败：' + error.message)
+        onError?.(`图片上传失败：${error.message}`)
       }
     }
 
     onImagesChange([...images, ...newImages])
     setUploading(false)
 
-    // 重置 input 以便再次上传同文件
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -71,7 +72,7 @@ export default function ImageUploader({
     const image = images[index]
     if (image) {
       const { error } = await deleteRepairImageFile(supabase, image.path)
-      if (error) onError?.('删除图片失败：' + error.message)
+      if (error) onError?.(`删除图片失败：${error.message}`)
     }
     const newImages = images.filter((_, i) => i !== index)
     onImagesChange(newImages)
@@ -79,17 +80,23 @@ export default function ImageUploader({
 
   return (
     <div className="grid grid-cols-3 gap-3">
-      {/* 已上传的图片 */}
       {images.map((image, idx) => (
         <div
           key={image.path}
           className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm"
         >
-          <img
-            alt={`上传照片 ${idx + 1}`}
-            className="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-500"
-            src={image.url}
-          />
+          <button
+            type="button"
+            onClick={() => setPreviewImage({ url: image.url, alt: `上传照片 ${idx + 1}`, fileName: image.path.split('/').pop() })}
+            className="block h-full w-full"
+            aria-label={`查看上传照片 ${idx + 1}`}
+          >
+            <img
+              alt={`上传照片 ${idx + 1}`}
+              className="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-500"
+              src={image.url}
+            />
+          </button>
           <button
             type="button"
             onClick={() => handleRemove(idx)}
@@ -100,7 +107,6 @@ export default function ImageUploader({
         </div>
       ))}
 
-      {/* 上传按钮 */}
       {images.length < maxImages && (
         <button
           type="button"
@@ -129,6 +135,7 @@ export default function ImageUploader({
         className="hidden"
         onChange={handleUpload}
       />
+      <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />
     </div>
   )
 }

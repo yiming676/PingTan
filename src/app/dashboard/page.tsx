@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
+import { createClient } from '@/lib/supabase/client'
+import { fetchUnreadNotificationCount } from '@/lib/services/campus'
 import { isAdminRole } from '@/lib/constants'
 import { getGreeting, formatDateChinese } from '@/lib/utils'
 import BottomNav from '@/components/BottomNav'
@@ -10,8 +12,69 @@ import Icon from '@/components/Icon'
 import NotificationPanel from '@/components/NotificationPanel'
 
 export default function DashboardPage() {
-  const { profile, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
+  const supabase = createClient()
   const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [autoOpenedUserId, setAutoOpenedUserId] = useState<string | null>(null)
+
+  const refreshUnreadCount = useCallback(async () => {
+    if (!user) {
+      setUnreadCount(0)
+      return
+    }
+
+    const { count, error } = await fetchUnreadNotificationCount(supabase)
+    if (!error) setUnreadCount(count)
+  }, [supabase, user])
+
+  useEffect(() => {
+    if (!user) return
+    let active = true
+
+    const load = async () => {
+      const { count, error } = await fetchUnreadNotificationCount(supabase)
+      if (!active || error) return
+      setUnreadCount(count)
+      if (count > 0 && autoOpenedUserId !== user.id) {
+        setShowNotifications(true)
+        setAutoOpenedUserId(user.id)
+      }
+    }
+
+    void load()
+
+    return () => {
+      active = false
+    }
+  }, [autoOpenedUserId, supabase, user])
+
+  useEffect(() => {
+    if (!user) return
+
+    const channel = supabase
+      .channel(`dashboard-notifications-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+        void refreshUnreadCount()
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notification_reads',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void refreshUnreadCount()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [refreshUnreadCount, supabase, user])
 
   if (loading) {
     return (
@@ -47,7 +110,7 @@ export default function DashboardPage() {
           className="relative p-2 rounded-full hover:bg-slate-100 transition-colors group"
         >
           <Icon name="notifications" className="text-slate-600" />
-          <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white" />
+          {unreadCount > 0 && <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white" />}
         </button>
       </header>
 
@@ -107,7 +170,7 @@ export default function DashboardPage() {
               onClick={() => setShowNotifications(true)}
               className="bg-white p-4 rounded-xl shadow-card hover:shadow-soft transition-all active:scale-95 flex flex-col items-start gap-3 border border-slate-100 relative overflow-hidden text-left"
             >
-              <span className="absolute top-4 right-4 h-2 w-2 rounded-full bg-red-500" />
+              {unreadCount > 0 && <span className="absolute top-4 right-4 h-2 w-2 rounded-full bg-red-500" />}
               <div className="h-10 w-10 rounded-full bg-teal-50 flex items-center justify-center text-teal-600">
                 <Icon name="campaign" />
               </div>
@@ -133,7 +196,11 @@ export default function DashboardPage() {
       </main>
 
       <BottomNav />
-      <NotificationPanel open={showNotifications} onClose={() => setShowNotifications(false)} />
+      <NotificationPanel
+        open={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onNotificationsRead={refreshUnreadCount}
+      />
     </div>
   )
 }

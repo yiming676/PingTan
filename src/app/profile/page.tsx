@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { fetchMyTickets, fetchRecentBookings, uploadProfileAvatar } from '@/lib/services/campus'
+import { fetchMyTickets, fetchRecentBookings, updateOwnProfile, uploadProfileAvatar } from '@/lib/services/campus'
 import { isAdminRole, ROLE_LABELS } from '@/lib/constants'
 import BottomNav from '@/components/BottomNav'
 import Icon from '@/components/Icon'
@@ -21,7 +21,19 @@ export default function ProfilePage() {
   const [recentTickets, setRecentTickets] = useState<RepairTicket[]>([])
   const [uploadedAvatarUrl, setUploadedAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [savedProfile, setSavedProfile] = useState(profile)
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '' })
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  useEffect(() => {
+    if (!profile) return
+    setSavedProfile(profile)
+    setProfileForm({
+      name: profile.name || '',
+      phone: profile.phone || '',
+    })
+  }, [profile])
 
   useEffect(() => {
     if (!user) return
@@ -73,6 +85,30 @@ export default function ProfilePage() {
     setToast({ message: '头像已更新', type: 'success' })
   }
 
+  const handleProfileSave = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!user) return
+
+    setSavingProfile(true)
+    const { profile: updatedProfile, error } = await updateOwnProfile(supabase, {
+      name: profileForm.name,
+      phone: profileForm.phone,
+    })
+    setSavingProfile(false)
+
+    if (error || !updatedProfile) {
+      setToast({ message: '保存个人信息失败：' + (error?.message || '未知错误'), type: 'error' })
+      return
+    }
+
+    setSavedProfile(updatedProfile)
+    setProfileForm({
+      name: updatedProfile.name || '',
+      phone: updatedProfile.phone || '',
+    })
+    setToast({ message: '个人信息已保存', type: 'success' })
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-light">
@@ -92,10 +128,11 @@ export default function ProfilePage() {
     return 'bg-amber-50 text-amber-700'
   }
 
-  const contactEmail = profile?.email || (user?.email?.endsWith('@auth.pingtan.local') ? null : user?.email)
-  const username = contactEmail?.split('@')[0] || profile?.phone || user?.email?.split('@')[0] || '用户'
-  const displayName = profile?.name && profile.name !== '老师' ? profile.name : username
-  const avatarUrl = uploadedAvatarUrl ?? profile?.avatar_url ?? null
+  const currentProfile = savedProfile ?? profile
+  const contactEmail = currentProfile?.email || (user?.email?.endsWith('@auth.pingtan.local') ? null : user?.email)
+  const username = contactEmail?.split('@')[0] || currentProfile?.phone || user?.email?.split('@')[0] || '用户'
+  const displayName = currentProfile?.name && currentProfile.name !== '老师' ? currentProfile.name : username
+  const avatarUrl = uploadedAvatarUrl ?? currentProfile?.avatar_url ?? null
 
   return (
     <div className="relative min-h-screen w-full flex flex-col pb-24 max-w-md mx-auto bg-background-light">
@@ -129,9 +166,9 @@ export default function ProfilePage() {
           />
           <div className="min-w-0 flex-1">
             <h1 className="max-w-full text-xl font-bold text-gray-900 break-words">{displayName}</h1>
-            {isAdminRole(profile?.role) && (
+            {isAdminRole(currentProfile?.role) && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary mt-1">
-                {profile ? ROLE_LABELS[profile.role] : '管理员'}
+                {currentProfile ? ROLE_LABELS[currentProfile.role] : '管理员'}
               </span>
             )}
           </div>
@@ -142,22 +179,43 @@ export default function ProfilePage() {
         {/* Info Card */}
         <section className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
           <h3 className="text-sm font-bold text-gray-500 mb-3">个人信息</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-gray-600">
-                <Icon name="mail" className="text-[18px]" />
-                <span className="text-sm">邮箱</span>
-              </div>
-              <span className="min-w-0 text-right text-sm text-gray-900 font-medium break-all">{profile?.email || user?.email || '-'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-gray-600">
-                <Icon name="phone" className="text-[18px]" />
-                <span className="text-sm">手机</span>
-              </div>
-              <span className="min-w-0 text-right text-sm text-gray-900 font-medium break-all">{profile?.phone || '未设置'}</span>
-            </div>
-          </div>
+          <form className="space-y-3" onSubmit={handleProfileSave}>
+            <label className="block">
+              <span className="mb-1 block text-xs font-bold text-gray-500">用户名</span>
+              <input
+                value={profileForm.name}
+                onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))}
+                className="h-11 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-medium text-gray-900 outline-none focus:border-primary focus:bg-white"
+                placeholder="请输入用户名"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-bold text-gray-500">手机号</span>
+              <input
+                value={profileForm.phone}
+                onChange={(event) => setProfileForm((current) => ({ ...current, phone: event.target.value }))}
+                className="h-11 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-medium text-gray-900 outline-none focus:border-primary focus:bg-white"
+                placeholder="请输入手机号"
+                type="tel"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-bold text-gray-500">邮箱（注册后不可自行修改）</span>
+              <input
+                value={currentProfile?.email || user?.email || '-'}
+                readOnly
+                className="h-11 w-full rounded-xl border border-gray-100 bg-gray-100 px-3 text-sm font-medium text-gray-500 outline-none"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={savingProfile}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white disabled:opacity-50"
+            >
+              {savingProfile && <Icon name="progress_activity" className="animate-spin text-[18px]" />}
+              保存个人信息
+            </button>
+          </form>
         </section>
 
         {/* Recent Bookings */}
@@ -211,7 +269,7 @@ export default function ProfilePage() {
           )}
         </section>
 
-        {isAdminRole(profile?.role) && (
+        {isAdminRole(currentProfile?.role) && (
           <button
             onClick={() => router.push('/admin')}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white font-semibold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
