@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { MEAL_LABELS } from '@/lib/constants'
 import { getWeekDates, getWeekdayName, toDateString, formatDateShort } from '@/lib/utils'
@@ -23,7 +22,6 @@ const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner']
 export default function CanteenPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const supabase = createClient()
 
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [menus, setMenus] = useState<MealMenu[]>([])
@@ -47,20 +45,20 @@ export default function CanteenPage() {
   const refreshData = useCallback(async () => {
     if (!user) return
     const [menuResult, bookingResult] = await Promise.all([
-      fetchMenusForDate(supabase, dateStr),
-      fetchBookingsForDate(supabase, user.id, dateStr),
+      fetchMenusForDate(dateStr),
+      fetchBookingsForDate(user.id, dateStr),
     ])
     setMenus(menuResult.menus)
     setBookings(bookingResult.bookings)
-  }, [dateStr, supabase, user])
+  }, [dateStr, user])
 
   useEffect(() => {
     if (!user) return
     let active = true
 
     Promise.all([
-      fetchMenusForDate(supabase, dateStr),
-      fetchBookingsForDate(supabase, user.id, dateStr),
+      fetchMenusForDate(dateStr),
+      fetchBookingsForDate(user.id, dateStr),
     ]).then(([menuResult, bookingResult]) => {
       if (!active) return
       setMenus(menuResult.menus)
@@ -70,34 +68,17 @@ export default function CanteenPage() {
     return () => {
       active = false
     }
-  }, [dateStr, supabase, user])
+  }, [dateStr, user])
 
   useEffect(() => {
     if (!user) return
-
-    const channel = supabase
-      .channel(`canteen-user-${user.id}-${dateStr}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'meal_menus' }, () => {
-        void refreshData()
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'meal_bookings',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          void refreshData()
-        }
-      )
-      .subscribe()
-
+    const intervalId = window.setInterval(() => {
+      void refreshData()
+    }, 30000)
     return () => {
-      void supabase.removeChannel(channel)
+      window.clearInterval(intervalId)
     }
-  }, [dateStr, refreshData, supabase, user])
+  }, [refreshData, user])
 
   // 预订
   const selectedItems = useMemo<SelectedMealItem[]>(() => (
@@ -130,7 +111,7 @@ export default function CanteenPage() {
   const handleBook = async (menu: MealMenu, items: SelectedMealItem[] = []) => {
     if (!user) return
     setLoadingAction(menu.id)
-    const { error } = await bookMeal(supabase, user.id, menu, dateStr, items)
+    const { error } = await bookMeal(user.id, menu, dateStr, items)
     if (error) {
       setToast({ message: error.message.includes('duplicate') ? '已报饭该餐次' : '报饭失败：' + error.message, type: 'error' })
     } else {
@@ -144,7 +125,7 @@ export default function CanteenPage() {
   // 取消预订
   const handleCancel = async (booking: MealBooking) => {
     setLoadingAction(booking.menu_id)
-    const { error } = await cancelMealBooking(supabase, booking.id)
+    const { error } = await cancelMealBooking(booking.id)
     if (error) {
       setToast({ message: '取消失败：' + error.message, type: 'error' })
     } else {

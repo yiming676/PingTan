@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchMyTickets, fetchRecentBookings, updateOwnProfile, uploadProfileAvatar } from '@/lib/services/campus'
 import { isAdminRole, ROLE_LABELS } from '@/lib/constants'
@@ -14,7 +13,6 @@ import type { MealBooking, RepairTicket } from '@/lib/types'
 export default function ProfilePage() {
   const router = useRouter()
   const { user, profile, signOut, loading } = useAuth()
-  const supabase = createClient()
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const [recentBookings, setRecentBookings] = useState<MealBooking[]>([])
@@ -40,8 +38,8 @@ export default function ProfilePage() {
     let active = true
     const load = async () => {
       const [bk, tk] = await Promise.all([
-        fetchRecentBookings(supabase, user.id, 5),
-        fetchMyTickets(supabase, user.id, 5),
+        fetchRecentBookings(user.id, 5),
+        fetchMyTickets(user.id, 5),
       ])
       if (!active) return
       setRecentBookings(bk.bookings)
@@ -51,7 +49,7 @@ export default function ProfilePage() {
     return () => {
       active = false
     }
-  }, [user, supabase])
+  }, [user])
 
   const handleSignOut = async () => {
     await signOut()
@@ -72,7 +70,7 @@ export default function ProfilePage() {
     }
 
     setUploadingAvatar(true)
-    const { url, error } = await uploadProfileAvatar(supabase, user.id, file)
+    const { url, error } = await uploadProfileAvatar(user.id, file)
     setUploadingAvatar(false)
     if (avatarInputRef.current) avatarInputRef.current.value = ''
 
@@ -90,7 +88,7 @@ export default function ProfilePage() {
     if (!user) return
 
     setSavingProfile(true)
-    const { profile: updatedProfile, error } = await updateOwnProfile(supabase, {
+    const { profile: updatedProfile, error } = await updateOwnProfile({
       name: profileForm.name,
       phone: profileForm.phone,
     })

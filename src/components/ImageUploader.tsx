@@ -1,8 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { deleteRepairImageFile } from '@/lib/services/campus'
+import { deleteRepairImageFile, uploadRepairImage } from '@/lib/services/campus'
 import Icon from '@/components/Icon'
 import ImagePreviewModal from '@/components/ImagePreviewModal'
 import type { UploadedImage } from '@/lib/types'
@@ -23,10 +22,8 @@ export default function ImageUploader({
   onError,
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const uploadSequenceRef = useRef(0)
   const [uploading, setUploading] = useState(false)
   const [previewImage, setPreviewImage] = useState<{ url: string; alt: string; fileName?: string } | null>(null)
-  const supabase = createClient()
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -40,23 +37,11 @@ export default function ImageUploader({
     const newImages: UploadedImage[] = []
 
     for (const file of filesToUpload) {
-      const ext = file.name.split('.').pop()
-      const safeBaseName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '-')
-      const sequence = uploadSequenceRef.current
-      uploadSequenceRef.current += 1
-      const fileName = `${userId}/${file.lastModified}_${sequence}_${safeBaseName}.${ext}`
-
-      const { error } = await supabase.storage
-        .from('repair-images')
-        .upload(fileName, file)
-
-      if (!error) {
-        const { data: urlData } = supabase.storage
-          .from('repair-images')
-          .getPublicUrl(fileName)
-        newImages.push({ url: urlData.publicUrl, path: fileName })
+      const { url, path, error } = await uploadRepairImage(userId, file)
+      if (!error && url && path) {
+        newImages.push({ url, path })
       } else {
-        onError?.(`图片上传失败：${error.message}`)
+        onError?.(`Image upload failed: ${error?.message || 'unknown error'}`)
       }
     }
 
@@ -71,8 +56,8 @@ export default function ImageUploader({
   const handleRemove = async (index: number) => {
     const image = images[index]
     if (image) {
-      const { error } = await deleteRepairImageFile(supabase, image.path)
-      if (error) onError?.(`删除图片失败：${error.message}`)
+      const { error } = await deleteRepairImageFile(image.path)
+      if (error) onError?.(`Image delete failed: ${error.message}`)
     }
     const newImages = images.filter((_, i) => i !== index)
     onImagesChange(newImages)
@@ -87,12 +72,12 @@ export default function ImageUploader({
         >
           <button
             type="button"
-            onClick={() => setPreviewImage({ url: image.url, alt: `上传照片 ${idx + 1}`, fileName: image.path.split('/').pop() })}
+            onClick={() => setPreviewImage({ url: image.url, alt: `Uploaded image ${idx + 1}`, fileName: image.path.split('/').pop() })}
             className="block h-full w-full"
-            aria-label={`查看上传照片 ${idx + 1}`}
+            aria-label={`Preview uploaded image ${idx + 1}`}
           >
             <img
-              alt={`上传照片 ${idx + 1}`}
+              alt={`Uploaded image ${idx + 1}`}
               className="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-500"
               src={image.url}
             />
@@ -130,7 +115,7 @@ export default function ImageUploader({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         multiple
         className="hidden"
         onChange={handleUpload}

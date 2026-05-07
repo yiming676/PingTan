@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import {
   createRepairTicket,
@@ -27,7 +26,6 @@ const QUICK_LOCATIONS = ['302教室', '办公楼 2F', '实验楼 1F', '图书馆
 
 export default function RepairPage() {
   const { user } = useAuth()
-  const supabase = createClient()
 
   const [faultType, setFaultType] = useState<FaultType | null>(null)
   const [location, setLocation] = useState('')
@@ -41,9 +39,9 @@ export default function RepairPage() {
 
   const loadTickets = useCallback(async () => {
     if (!user) return
-    const { tickets } = await fetchMyTickets(supabase, user.id, 20)
+    const { tickets } = await fetchMyTickets(user.id, 20)
     setMyTickets(tickets)
-  }, [supabase, user])
+  }, [user])
 
   useEffect(() => {
     void loadTickets()
@@ -51,30 +49,13 @@ export default function RepairPage() {
 
   useEffect(() => {
     if (!user) return
-
-    const channel = supabase
-      .channel(`repair-user-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'repair_tickets',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          void loadTickets()
-        }
-      )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'repair_images' }, () => {
-        void loadTickets()
-      })
-      .subscribe()
-
+    const intervalId = window.setInterval(() => {
+      void loadTickets()
+    }, 30000)
     return () => {
-      void supabase.removeChannel(channel)
+      window.clearInterval(intervalId)
     }
-  }, [loadTickets, supabase, user])
+  }, [loadTickets, user])
 
   const handleSubmit = async () => {
     if (!user || !faultType || !location || !description) {
@@ -84,7 +65,7 @@ export default function RepairPage() {
 
     setSubmitting(true)
 
-    const { error, ticket } = await createRepairTicket(supabase, {
+    const { error, ticket } = await createRepairTicket({
       userId: user.id,
       faultType,
       location,
@@ -94,7 +75,7 @@ export default function RepairPage() {
 
     if (error || !ticket) {
       if (!ticket) {
-        await Promise.all(images.map((image) => deleteRepairImageFile(supabase, image.path)))
+        await Promise.all(images.map((image) => deleteRepairImageFile(image.path)))
       }
       setToast({ message: `提交失败：${error?.message || '未知错误'}`, type: 'error' })
       setSubmitting(false)

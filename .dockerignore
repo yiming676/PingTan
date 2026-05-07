@@ -1,0 +1,13 @@
+.git
+.next
+node_modules
+run-logs
+
+.env
+.env.*
+backend/.env
+backend/.env.*
+
+backend/.venv
+__pycache__
+*.pyc

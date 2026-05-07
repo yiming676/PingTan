@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
-import { createClient } from '@/lib/supabase/client'
 import { fetchUnreadNotificationCount } from '@/lib/services/campus'
 import { isAdminRole } from '@/lib/constants'
 import { getGreeting, formatDateChinese } from '@/lib/utils'
@@ -13,7 +12,6 @@ import NotificationPanel from '@/components/NotificationPanel'
 
 export default function DashboardPage() {
   const { user, profile, loading } = useAuth()
-  const supabase = createClient()
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [autoOpenedUserId, setAutoOpenedUserId] = useState<string | null>(null)
@@ -24,16 +22,16 @@ export default function DashboardPage() {
       return
     }
 
-    const { count, error } = await fetchUnreadNotificationCount(supabase)
+    const { count, error } = await fetchUnreadNotificationCount()
     if (!error) setUnreadCount(count)
-  }, [supabase, user])
+  }, [user])
 
   useEffect(() => {
     if (!user) return
     let active = true
 
     const load = async () => {
-      const { count, error } = await fetchUnreadNotificationCount(supabase)
+      const { count, error } = await fetchUnreadNotificationCount()
       if (!active || error) return
       setUnreadCount(count)
       if (count > 0 && autoOpenedUserId !== user.id) {
@@ -47,34 +45,17 @@ export default function DashboardPage() {
     return () => {
       active = false
     }
-  }, [autoOpenedUserId, supabase, user])
+  }, [autoOpenedUserId, user])
 
   useEffect(() => {
     if (!user) return
-
-    const channel = supabase
-      .channel(`dashboard-notifications-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        void refreshUnreadCount()
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notification_reads',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          void refreshUnreadCount()
-        }
-      )
-      .subscribe()
-
+    const intervalId = window.setInterval(() => {
+      void refreshUnreadCount()
+    }, 30000)
     return () => {
-      void supabase.removeChannel(channel)
+      window.clearInterval(intervalId)
     }
-  }, [refreshUnreadCount, supabase, user])
+  }, [refreshUnreadCount, user])
 
   if (loading) {
     return (

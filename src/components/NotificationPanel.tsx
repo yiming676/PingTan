@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { fetchNotifications, markNotificationsRead } from '@/lib/services/campus'
 import Icon from '@/components/Icon'
 import type { Notification } from '@/lib/types'
@@ -15,16 +14,15 @@ interface NotificationPanelProps {
 export default function NotificationPanel({ open, onClose, onNotificationsRead }: NotificationPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   const fetchData = useCallback(async () => {
-    const { notifications } = await fetchNotifications(supabase, 20)
+    const { notifications } = await fetchNotifications(20)
     setNotifications(notifications)
     setLoading(false)
     const ids = notifications.map((notification) => notification.id)
-    const { error } = await markNotificationsRead(supabase, ids)
+    const { error } = await markNotificationsRead(ids)
     if (!error) onNotificationsRead?.()
-  }, [onNotificationsRead, supabase])
+  }, [onNotificationsRead])
 
   useEffect(() => {
     if (!open) return
@@ -33,12 +31,12 @@ export default function NotificationPanel({ open, onClose, onNotificationsRead }
     setLoading(true)
 
     const loadNotifications = async () => {
-      const { notifications } = await fetchNotifications(supabase, 20)
+      const { notifications } = await fetchNotifications(20)
       if (!active) return
       setNotifications(notifications)
       setLoading(false)
       const ids = notifications.map((notification) => notification.id)
-      const { error } = await markNotificationsRead(supabase, ids)
+      const { error } = await markNotificationsRead(ids)
       if (!error && active) onNotificationsRead?.()
     }
 
@@ -47,22 +45,17 @@ export default function NotificationPanel({ open, onClose, onNotificationsRead }
     return () => {
       active = false
     }
-  }, [onNotificationsRead, open, supabase])
+  }, [onNotificationsRead, open])
 
   useEffect(() => {
     if (!open) return
-
-    const channel = supabase
-      .channel('notifications-panel-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        void fetchData()
-      })
-      .subscribe()
-
+    const intervalId = window.setInterval(() => {
+      void fetchData()
+    }, 30000)
     return () => {
-      void supabase.removeChannel(channel)
+      window.clearInterval(intervalId)
     }
-  }, [fetchData, open, supabase])
+  }, [fetchData, open])
 
   if (!open) return null
 

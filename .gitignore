@@ -40,3 +40,48 @@ run-logs/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python
+__pycache__/
+*.py[cod]
+
+@"
+
+# backend env / local files
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# python virtual env
+.venv/
+venv/
+backend/.venv/
+backend/venv/
+
+# python cache/tools
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# local upload/data
+uploads/
+backend/uploads/
+data/
+postgres-data/
+pgdata/
+backups/
+
+# local database
+*.sqlite
+*.sqlite3
+*.db
+
+# docker local override
+docker-compose.override.yml
+
+# allow example env files
+!.env.example
+!.env.*.example
+"@ | Add-Content .gitignore
