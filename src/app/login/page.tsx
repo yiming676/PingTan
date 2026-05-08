@@ -131,7 +131,8 @@ export default function LoginPage() {
                 className="text-text-muted text-sm font-medium"
               />
             </div>
-
+          </div>
+          
           {!isRegister ? (
             <form className="flex flex-col gap-5" onSubmit={handleLogin}>
               <div className="space-y-1.5">
