@@ -81,7 +81,7 @@ export interface Notification {
 
 export type FaultType = '水电门窗' | '多媒体' | '空调' | '其他'
 export type MealType = 'breakfast' | 'lunch' | 'dinner'
-export type TicketStatus = '待处理' | '处理中' | '已完成'
+export type TicketStatus = 'pending' | 'processing' | 'completed'
 export type NotificationType = 'info' | 'warning' | 'urgent'
 
 export interface UploadedImage {

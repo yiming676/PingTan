@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -29,6 +29,7 @@ import {
   NOTIFICATION_LABELS,
   ROLE_LABELS,
   TICKET_STATUS_LABELS,
+  TICKET_STATUS_OPTIONS,
 } from '@/lib/constants'
 import { toDateString } from '@/lib/utils'
 import Header from '@/components/Header'
@@ -86,7 +87,11 @@ function parseMenuItems(value: string) {
 }
 
 function getWeekdayLabel(dateString: string) {
-  return ['鍛ㄦ棩', '鍛ㄤ竴', '鍛ㄤ簩', '鍛ㄤ笁', '鍛ㄥ洓', '鍛ㄤ簲', '鍛ㄥ叚'][new Date(`${dateString}T00:00:00`).getDay()]
+  return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][new Date(`${dateString}T00:00:00`).getDay()]
+}
+
+function getTicketStatusLabel(status: string) {
+  return TICKET_STATUS_LABELS[status as TicketStatus] ?? status
 }
 
 const emptyMenuForm = getDefaultMenuForm()
@@ -130,10 +135,10 @@ export default function AdminPage() {
 
   const tabs = useMemo(() => {
     const result: { id: AdminTab; label: string; icon: string }[] = []
-    if (permissions.canteen) result.push({ id: 'canteen', label: '椋熷爞', icon: 'restaurant_menu' })
-    if (permissions.repair) result.push({ id: 'repair', label: '鎶ヤ慨', icon: 'construction' })
-    if (permissions.notifications) result.push({ id: 'notifications', label: '閫氱煡', icon: 'campaign' })
-    if (permissions.users) result.push({ id: 'users', label: '鐢ㄦ埛', icon: 'group' })
+    if (permissions.canteen) result.push({ id: 'canteen', label: '食堂', icon: 'restaurant_menu' })
+    if (permissions.repair) result.push({ id: 'repair', label: '报修', icon: 'construction' })
+    if (permissions.notifications) result.push({ id: 'notifications', label: '通知', icon: 'campaign' })
+    if (permissions.users) result.push({ id: 'users', label: '用户', icon: 'group' })
     return result
   }, [permissions])
 
@@ -218,11 +223,11 @@ export default function AdminPage() {
     if (!file || !profile) return
 
     if (!file.type.startsWith('image/')) {
-      setToast({ message: 'Please upload an image file', type: 'error' })
+      setToast({ message: '请上传图片文件', type: 'error' })
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      setToast({ message: 'Menu image must be 5MB or smaller', type: 'error' })
+      setToast({ message: '菜单图片不能超过 5MB', type: 'error' })
       return
     }
 
@@ -232,7 +237,7 @@ export default function AdminPage() {
     if (menuImageInputRef.current) menuImageInputRef.current.value = ''
 
     if (error || !url || !path) {
-      setToast({ message: `Menu image upload failed: ${error?.message || 'unknown error'}`, type: 'error' })
+      setToast({ message: `菜单图片上传失败：${error?.message || '未知错误'}`, type: 'error' })
       return
     }
 
@@ -241,14 +246,14 @@ export default function AdminPage() {
       imageUrl: url,
       imagePath: path,
     }))
-    setToast({ message: 'Menu image uploaded', type: 'success' })
+    setToast({ message: '菜单图片已上传', type: 'success' })
   }
 
   const handleSaveMenu = async () => {
     const parsedItems = parseMenuItems(menuForm.items)
 
     if (!menuForm.date || parsedItems.length === 0) {
-      setToast({ message: 'Please enter menu date and items', type: 'error' })
+      setToast({ message: '请填写菜单日期和菜品', type: 'error' })
       return
     }
 
@@ -267,19 +272,19 @@ export default function AdminPage() {
 
     if (error) {
       setBusy(false)
-      setToast({ message: `Menu save failed: ${error.message}`, type: 'error' })
+      setToast({ message: `菜单保存失败：${error.message}`, type: 'error' })
       return
     }
 
     const mealLabel = MEAL_LABELS[menuForm.mealType]
     const { error: noticeError } = await createNotification({
-      title: `${menuForm.date} ${mealLabel} menu updated`,
-      content: `${mealLabel} menu has been updated. Please check the canteen booking page.`,
+      title: `${menuForm.date} ${mealLabel}菜单已更新`,
+      content: `${mealLabel}菜单已更新，请进入食堂报饭页面查看。`,
       type: 'info',
       targetUserId: null,
     })
     setBusy(false)
-    setToast({ message: noticeError ? `Menu saved, notice failed: ${noticeError.message}` : 'Menu saved and notice sent', type: noticeError ? 'error' : 'success' })
+    setToast({ message: noticeError ? `菜单已保存，通知发布失败：${noticeError.message}` : '菜单已保存并已发送通知', type: noticeError ? 'error' : 'success' })
     setMenuForm(getDefaultMenuForm())
     await reloadMenusAndBookings()
   }
@@ -302,31 +307,31 @@ export default function AdminPage() {
   const handleDeleteMenu = async (id: string) => {
     const { error } = await deleteMenu(id)
     if (error) {
-      setToast({ message: `Menu delete failed: ${error.message}`, type: 'error' })
+      setToast({ message: `菜单删除失败：${error.message}`, type: 'error' })
       return
     }
-    setToast({ message: 'Menu deleted', type: 'success' })
+    setToast({ message: '菜单已删除', type: 'success' })
     await reloadMenusAndBookings()
   }
 
   const handleMenuStatus = async (menu: MealMenu, status: MealMenu['booking_status']) => {
     const { error } = await updateMenuBookingStatus(menu.id, status)
     if (error) {
-      setToast({ message: `Menu status update failed: ${error.message}`, type: 'error' })
+      setToast({ message: `菜单状态更新失败：${error.message}`, type: 'error' })
       return
     }
-    setToast({ message: status === 'open' ? 'Booking opened' : 'Booking closed', type: 'success' })
+    setToast({ message: status === 'open' ? '报饭已开启' : '报饭已关闭', type: 'success' })
     await reloadMenusAndBookings()
   }
 
   const handleTicketStatus = async (ticketId: string, status: TicketStatus) => {
     const { error } = await updateTicketStatus(ticketId, status)
     if (error) {
-      setToast({ message: `Ticket status update failed: ${error.message}`, type: 'error' })
+      setToast({ message: `工单状态更新失败：${error.message}`, type: 'error' })
       return
     }
     await reloadTickets()
-    setToast({ message: 'Ticket status updated', type: 'success' })
+    setToast({ message: '工单状态已更新', type: 'success' })
   }
 
   const handleRepairResultImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -335,7 +340,7 @@ export default function AdminPage() {
     if (!file || !profile || !ticketId) return
 
     if (!file.type.startsWith('image/')) {
-      setToast({ message: 'Please upload an image file', type: 'error' })
+      setToast({ message: '请上传图片文件', type: 'error' })
       return
     }
 
@@ -345,7 +350,7 @@ export default function AdminPage() {
     if (repairResultInputRef.current) repairResultInputRef.current.value = ''
 
     if (error || !url || !path) {
-      setToast({ message: `Repair result image upload failed: ${error?.message || 'unknown error'}`, type: 'error' })
+      setToast({ message: `维修结果图片上传失败：${error?.message || '未知错误'}`, type: 'error' })
       return
     }
 
@@ -357,13 +362,13 @@ export default function AdminPage() {
         imagePath: path,
       },
     }))
-    setToast({ message: 'Repair result image uploaded', type: 'success' })
+    setToast({ message: '维修结果图片已上传', type: 'success' })
   }
 
   const handleCompleteRepair = async (ticket: RepairTicket) => {
     const form = repairResultForm[ticket.id]
     if (!form?.text?.trim()) {
-      setToast({ message: 'Please enter repair result text', type: 'error' })
+      setToast({ message: '请填写维修结果说明', type: 'error' })
       return
     }
 
@@ -377,24 +382,24 @@ export default function AdminPage() {
 
     if (error) {
       setBusy(false)
-      setToast({ message: `Repair completion failed: ${error.message}`, type: 'error' })
+      setToast({ message: `维修结果提交失败：${error.message}`, type: 'error' })
       return
     }
 
     await createNotification({
-      title: 'Repair completed',
-      content: `${ticket.location} repair has been completed. Please check the repair page for details.`,
+      title: '维修已完成',
+      content: `${ticket.location} 的维修申请已处理完成，请进入设施报修页面查看详情。`,
       type: 'info',
       targetUserId: ticket.user_id,
     })
     setBusy(false)
     await reloadTickets()
-    setToast({ message: 'Repair completed and user notified', type: 'success' })
+    setToast({ message: '维修结果已提交并已通知用户', type: 'success' })
   }
 
   const handleCreateNotice = async () => {
     if (!noticeForm.title || !noticeForm.content) {
-      setToast({ message: 'Please enter notification title and content', type: 'error' })
+      setToast({ message: '请填写通知标题和内容', type: 'error' })
       return
     }
 
@@ -406,35 +411,35 @@ export default function AdminPage() {
     })
 
     if (error) {
-      setToast({ message: `Notification create failed: ${error.message}`, type: 'error' })
+      setToast({ message: `通知发布失败：${error.message}`, type: 'error' })
       return
     }
 
     setNoticeForm({ title: '', content: '', type: 'info', targetUserId: '' })
     const { notifications: nextNotifications } = await fetchAdminNotifications()
     setNotifications(nextNotifications)
-    setToast({ message: 'Notification published', type: 'success' })
+    setToast({ message: '通知已发布', type: 'success' })
   }
 
   const handleDeleteNotice = async (id: string) => {
     const { error } = await deleteNotification(id)
     if (error) {
-      setToast({ message: `Notification delete failed: ${error.message}`, type: 'error' })
+      setToast({ message: `通知删除失败：${error.message}`, type: 'error' })
       return
     }
     setNotifications((current) => current.filter((item) => item.id !== id))
-    setToast({ message: 'Notification deleted', type: 'success' })
+    setToast({ message: '通知已删除', type: 'success' })
   }
 
   const handleRoleChange = async (userId: string, role: UserRole) => {
     const { error } = await updateProfileRole(userId, role)
     if (error) {
-      setToast({ message: `Role update failed: ${error.message}`, type: 'error' })
+      setToast({ message: `角色更新失败：${error.message}`, type: 'error' })
       return
     }
     const { profiles: nextProfiles } = await fetchAdminProfiles()
     setProfiles(nextProfiles)
-    setToast({ message: 'Role updated', type: 'success' })
+    setToast({ message: '角色已更新', type: 'success' })
   }
 
   const bookingStats = useMemo(() => {
@@ -500,10 +505,10 @@ export default function AdminPage() {
   if (!profile || tabs.length === 0) {
     return (
       <div className="min-h-screen bg-background-light">
-        <Header title="绠＄悊鍚庡彴" showBack />
+        <Header title="管理后台" showBack />
         <div className="px-6 py-16 text-center text-gray-400">
           <Icon name="lock" className="mx-auto mb-3 text-5xl" />
-          <p className="text-sm font-medium">褰撳墠璐﹀彿鏆傛棤绠＄悊鏉冮檺</p>
+          <p className="text-sm font-medium">当前账号暂无管理权限</p>
         </div>
       </div>
     )
@@ -513,13 +518,13 @@ export default function AdminPage() {
     <div className="min-h-screen bg-background-light text-gray-900 pb-12">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />
-      <Header title="绠＄悊鍚庡彴" showBack />
+      <Header title="管理后台" showBack />
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-5">
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h1 className="text-lg font-bold">鏍″姟绠＄悊</h1>
+              <h1 className="text-lg font-bold">校务管理</h1>
               <p className="text-xs text-gray-500 mt-1">{ROLE_LABELS[profile.role]}</p>
             </div>
             {busy && <Icon name="progress_activity" className="text-primary animate-spin" />}
@@ -546,40 +551,40 @@ export default function AdminPage() {
         {currentTab === 'canteen' && permissions.canteen && (
           <>
             <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
-              <h2 className="text-base font-bold">鑿滃崟绠＄悊</h2>
+              <h2 className="text-base font-bold">菜单管理</h2>
               <div className="grid grid-cols-2 gap-3">
                 <input className="h-11 rounded-xl bg-gray-50 px-3 text-sm outline-none border border-gray-100" type="date" value={menuForm.date} onChange={(e) => setMenuForm({ ...menuForm, date: e.target.value })} />
                 <select className="h-11 rounded-xl bg-gray-50 px-3 text-sm outline-none border border-gray-100" value={menuForm.mealType} onChange={(e) => setMenuForm({ ...menuForm, mealType: e.target.value as MealType })}>
                   {Object.entries(MEAL_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </div>
-              <input className="hidden" placeholder="渚涢鏃堕棿锛屼緥濡?11:30 - 13:00" value={menuForm.timeRange} onChange={(e) => setMenuForm({ ...menuForm, timeRange: e.target.value })} />
-              <input className="hidden" placeholder="鍥剧墖 URL" value={menuForm.imageUrl} onChange={(e) => setMenuForm({ ...menuForm, imageUrl: e.target.value })} />
+              <input className="hidden" placeholder="用餐时间，例如 11:30 - 13:00" value={menuForm.timeRange} onChange={(e) => setMenuForm({ ...menuForm, timeRange: e.target.value })} />
+              <input className="hidden" placeholder="图片 URL" value={menuForm.imageUrl} onChange={(e) => setMenuForm({ ...menuForm, imageUrl: e.target.value })} />
               <div className="hidden">
                 <input ref={menuImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleMenuImageChange} />
                 <button type="button" disabled={uploadingMenuImage} onClick={() => menuImageInputRef.current?.click()} className="h-11 px-4 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold disabled:opacity-50">
-                  {uploadingMenuImage ? '涓婁紶涓?..' : '涓婁紶鑿滃崟鍥剧墖'}
+                  {uploadingMenuImage ? '上传中...' : '上传菜单图片'}
                 </button>
                 <select className="h-11 flex-1 rounded-xl bg-gray-50 px-3 text-sm outline-none border border-gray-100" value={menuForm.bookingStatus} onChange={(e) => setMenuForm({ ...menuForm, bookingStatus: e.target.value as MealMenu['booking_status'] })}>
-                  <option value="open">寮€鏀炬姤楗</option>
-                  <option value="closed">鎴鎶ラキ</option>
+                  <option value="open">开放报饭</option>
+                  <option value="closed">关闭报饭</option>
                 </select>
               </div>
               {false && menuForm.imageUrl && (
-                <img alt="鑿滃崟棰勮" className="h-28 w-full rounded-xl object-cover border border-gray-100" src={menuForm.imageUrl} />
+                <img alt="菜单预览" className="h-28 w-full rounded-xl object-cover border border-gray-100" src={menuForm.imageUrl} />
               )}
-              <textarea className="w-full rounded-xl bg-gray-50 p-3 text-sm outline-none border border-gray-100 resize-none" rows={3} placeholder="Enter menu items, separated by commas or new lines" value={menuForm.items} onChange={(e) => setMenuForm({ ...menuForm, items: e.target.value })} />
-              <textarea className="hidden" rows={2} placeholder="鑿滃崟鎻忚堪" value={menuForm.description} onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })} />
+              <textarea className="w-full rounded-xl bg-gray-50 p-3 text-sm outline-none border border-gray-100 resize-none" rows={3} placeholder="请输入菜品，支持逗号或换行分隔" value={menuForm.items} onChange={(e) => setMenuForm({ ...menuForm, items: e.target.value })} />
+              <textarea className="hidden" rows={2} placeholder="菜单描述" value={menuForm.description} onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })} />
               <div className="flex gap-2">
-                <button type="button" onClick={handleSaveMenu} className="flex-1 h-11 rounded-xl bg-primary text-white text-sm font-bold">鍙戝竷鑿滃崟</button>
-                <button type="button" onClick={() => setMenuForm(getDefaultMenuForm())} className="w-24 h-11 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold">娓呯┖</button>
+                <button type="button" onClick={handleSaveMenu} className="flex-1 h-11 rounded-xl bg-primary text-white text-sm font-bold">发布菜单</button>
+                <button type="button" onClick={() => setMenuForm(getDefaultMenuForm())} className="w-24 h-11 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold">清空</button>
               </div>
             </section>
 
             <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-              <h2 className="text-base font-bold mb-3">鎶ラキ姹囨€</h2>
+              <h2 className="text-base font-bold mb-3">报饭汇总</h2>
               {bookingDateStats.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-6">鏆傛棤鎶ラキ鏁版嵁</p>
+                <p className="text-xs text-gray-400 text-center py-6">暂无报饭数据</p>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {visibleBookingDateStats.map((item) => (
@@ -593,7 +598,7 @@ export default function AdminPage() {
                       className={`rounded-xl p-3 text-left ${selectedBookingDate === item.date ? 'bg-primary text-white' : 'bg-primary/5 text-gray-900'}`}
                     >
                       <p className={selectedBookingDate === item.date ? 'text-xs text-white/80' : 'text-xs text-gray-500'}>{item.date}</p>
-                      <p className="mt-1 text-sm font-bold">{getWeekdayLabel(item.date)} 路 {item.count} 浜</p>
+                      <p className="mt-1 text-sm font-bold">{getWeekdayLabel(item.date)} · {item.count} 人</p>
                     </button>
                   ))}
                 </div>
@@ -605,7 +610,7 @@ export default function AdminPage() {
                   className="mt-3 flex h-10 w-full items-center justify-center gap-1 rounded-xl bg-gray-50 text-xs font-bold text-gray-600"
                 >
                   <Icon name={showAllBookingDates ? 'expand_less' : 'expand_more'} className="text-[18px]" />
-                  {showAllBookingDates ? '鏀惰捣鍘嗗彶鏃ユ湡' : `灞曞紑鍏ㄩ儴鏃ユ湡锛?{bookingDateStats.length} 澶╋級`}
+                  {showAllBookingDates ? '收起历史日期' : `展开全部日期（${bookingDateStats.length} 天）`}
                 </button>
               )}
               {selectedBookingDate && (
@@ -619,7 +624,7 @@ export default function AdminPage() {
                   </div>
                   {selectedMealItemTotals.length > 0 && (
                     <div className="mb-3 rounded-lg bg-primary/5 p-3">
-                      <p className="mb-2 text-xs font-bold text-primary">鑿滃搧姹囨€</p>
+                      <p className="mb-2 text-xs font-bold text-primary">菜品汇总</p>
                       <div className="flex flex-wrap gap-2">
                         {selectedMealItemTotals.map((item) => (
                           <span key={item.name} className="rounded-full bg-white px-2 py-1 text-xs font-bold text-gray-700">{item.name} x {item.quantity}</span>
@@ -628,7 +633,7 @@ export default function AdminPage() {
                     </div>
                   )}
                   {selectedMealBookings.length === 0 ? (
-                    <p className="py-4 text-center text-xs text-gray-400">璇ラ鏆傛棤鎶ラキ</p>
+                    <p className="py-4 text-center text-xs text-gray-400">该餐暂无报饭</p>
                   ) : (
                     <div className="space-y-2">
                       {selectedMealBookings.map((booking) => {
@@ -637,10 +642,10 @@ export default function AdminPage() {
                           <div key={booking.id} className="rounded-lg bg-gray-50 px-3 py-2">
                             <div className="flex items-center justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-bold text-gray-900">{booking.profiles?.name || '鏈煡鐢ㄦ埛'}</p>
+                                <p className="truncate text-sm font-bold text-gray-900">{booking.profiles?.name || '未知用户'}</p>
                                 <p className="truncate text-xs text-gray-400">{booking.profiles?.phone || booking.profiles?.email || booking.user_id}</p>
                               </div>
-                              <span className="shrink-0 text-xs font-bold text-primary">{total} 浠</span>
+                              <span className="shrink-0 text-xs font-bold text-primary">{total} 份</span>
                             </div>
                             {booking.selected_items?.length > 0 && (
                               <p className="mt-2 text-xs text-gray-500">{booking.selected_items.map((item) => `${item.name} x ${item.quantity}`).join(', ')}</p>
@@ -654,24 +659,24 @@ export default function AdminPage() {
               )}
               <div className="hidden">
               {bookingStats.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-6">鏆傛棤棰勮鏁版嵁</p>
+                <p className="text-xs text-gray-400 text-center py-6">暂无预订数据</p>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {bookingStats.map((item) => (
                     <div key={`${item.date}-${item.mealType}`} className="rounded-xl bg-primary/5 p-3">
                       <p className="text-xs text-gray-500">{item.date}</p>
-                      <p className="text-sm font-bold mt-1">{MEAL_LABELS[item.mealType]} 路 {item.count} 浜</p>
+                      <p className="text-sm font-bold mt-1">{MEAL_LABELS[item.mealType]} · {item.count} 人</p>
                     </div>
                   ))}
                 </div>
               )}
               {bookingDetails.length > 0 && (
                 <div className="mt-4 border-t border-gray-100 pt-3 space-y-2">
-                  <h3 className="text-xs font-bold text-gray-500">鎶ラキ鏄庣粏</h3>
+                  <h3 className="text-xs font-bold text-gray-500">报饭明细</h3>
                   {bookingDetails.map((booking) => (
                     <div key={booking.id} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-gray-900">{booking.profiles?.name || '鏈煡鐢ㄦ埛'}</p>
+                        <p className="truncate text-sm font-bold text-gray-900">{booking.profiles?.name || '未知用户'}</p>
                         <p className="truncate text-xs text-gray-400">{booking.profiles?.phone || booking.profiles?.email || booking.user_id}</p>
                       </div>
                       <span className="shrink-0 text-xs font-bold text-primary">{booking.date} {MEAL_LABELS[booking.meal_type]}</span>
@@ -683,20 +688,20 @@ export default function AdminPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-sm font-bold text-gray-500 px-1">鏈€杩戣彍鍗</h2>
+              <h2 className="text-sm font-bold text-gray-500 px-1">最近菜单</h2>
               {menus.map((menu) => (
                 <div key={menu.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-bold">{menu.date} 路 {MEAL_LABELS[menu.meal_type]}</p>
+                      <p className="text-sm font-bold">{menu.date} · {MEAL_LABELS[menu.meal_type]}</p>
                       <p className="text-xs text-gray-500 mt-1 line-clamp-2">{menu.items.join(', ')}</p>
                       <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${menu.booking_status === 'open' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {menu.booking_status === 'open' ? 'Open' : 'Closed'}
+                        {menu.booking_status === 'open' ? '开放中' : '已关闭'}
                       </span>
                     </div>
                     <div className="flex gap-1">
                       <button type="button" onClick={() => handleMenuStatus(menu, menu.booking_status === 'open' ? 'closed' : 'open')} className="hidden">
-                        {menu.booking_status === 'open' ? '鎴' : '閲嶅惎'}
+                        {menu.booking_status === 'open' ? '关闭' : '开放'}
                       </button>
                       <button type="button" onClick={() => handleEditMenu(menu)} className="size-8 rounded-full bg-gray-100 text-gray-600">
                         <Icon name="edit" className="text-[18px]" />
@@ -718,23 +723,24 @@ export default function AdminPage() {
             onClick={(event) => {
               const target = event.target
               if (!(target instanceof HTMLImageElement) || !target.src) return
-              setPreviewImage({ url: target.src, alt: target.alt || '鎶ヤ慨鍥剧墖' })
+              setPreviewImage({ url: target.src, alt: target.alt || '报修图片' })
             }}
           >
-            <h2 className="text-sm font-bold text-gray-500 px-1">鎶ヤ慨宸ュ崟</h2>
+            <h2 className="text-sm font-bold text-gray-500 px-1">维修工单</h2>
             <input ref={repairResultInputRef} type="file" accept="image/*" className="hidden" onChange={handleRepairResultImageChange} />
             {tickets.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center text-gray-400">鏆傛棤宸ュ崟</div>
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center text-gray-400">暂无工单</div>
             ) : tickets.map((ticket) => (
               <div key={ticket.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-bold">{ticket.fault_type} 路 {ticket.location}</p>
-                    {false && <span className="mt-2 inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">Pending</span>}
-                    <p className="text-xs text-gray-400 mt-1">{ticket.profiles?.name || '鏈煡鐢ㄦ埛'} 路 {new Date(ticket.created_at).toLocaleString('zh-CN')}</p>
+                    <p className="text-sm font-bold">{ticket.fault_type} · {ticket.location}</p>
+                    {ticket.status === 'pending' && <span className="mt-2 inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600">新维修申请</span>}
+                    <p className="text-xs text-gray-400 mt-1">{ticket.profiles?.name || '未知用户'} · {new Date(ticket.created_at).toLocaleString('zh-CN')}</p>
                   </div>
                   <select className="h-9 rounded-lg bg-gray-50 px-2 text-xs font-bold outline-none border border-gray-100" value={ticket.status} onChange={(e) => handleTicketStatus(ticket.id, e.target.value as TicketStatus)}>
-                    {TICKET_STATUS_LABELS.map((status) => <option key={status} value={status}>{status}</option>)}
+                    {!TICKET_STATUS_OPTIONS.includes(ticket.status as TicketStatus) && <option value={ticket.status}>{getTicketStatusLabel(ticket.status)}</option>}
+                    {TICKET_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{TICKET_STATUS_LABELS[status]}</option>)}
                   </select>
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">{ticket.description}</p>
@@ -743,7 +749,7 @@ export default function AdminPage() {
                     {ticket.repair_images.map((image, index) => (
                       <img
                         key={image.id}
-                        alt={`鐜板満鐓х墖 ${index + 1}`}
+                        alt={`现场照片 ${index + 1}`}
                         className="aspect-square w-full rounded-lg object-cover"
                         src={image.image_url}
                       />
@@ -752,16 +758,16 @@ export default function AdminPage() {
                 )}
                 {ticket.result_text ? (
                   <div className="rounded-xl bg-green-50 p-3">
-                    <p className="text-xs font-bold text-green-700">缁翠慨缁撴灉</p>
+                    <p className="text-xs font-bold text-green-700">维修结果</p>
                     <p className="mt-1 text-sm text-gray-700">{ticket.result_text}</p>
-                    {ticket.result_image_url && <img alt="缁翠慨缁撴灉" className="mt-3 h-32 w-full rounded-lg object-cover" src={ticket.result_image_url} />}
+                    {ticket.result_image_url && <img alt="维修结果" className="mt-3 h-32 w-full rounded-lg object-cover" src={ticket.result_image_url} />}
                   </div>
                 ) : (
                   <div className="space-y-2 rounded-xl bg-gray-50 p-3">
                     <textarea
                       className="w-full rounded-lg border border-gray-100 bg-white p-3 text-sm outline-none resize-none"
                       rows={2}
-                      placeholder="濉啓缁翠慨缁撴灉"
+                      placeholder="填写维修结果"
                       value={repairResultForm[ticket.id]?.text ?? ''}
                       onChange={(e) => setRepairResultForm((current) => ({
                         ...current,
@@ -772,7 +778,7 @@ export default function AdminPage() {
                         },
                       }))}
                     />
-                    {repairResultForm[ticket.id]?.imageUrl && <img alt="缁翠慨缁撴灉棰勮" className="h-28 w-full rounded-lg object-cover" src={repairResultForm[ticket.id].imageUrl} />}
+                    {repairResultForm[ticket.id]?.imageUrl && <img alt="维修结果预览" className="h-28 w-full rounded-lg object-cover" src={repairResultForm[ticket.id].imageUrl} />}
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -783,10 +789,10 @@ export default function AdminPage() {
                         }}
                         className="h-10 flex-1 rounded-lg bg-white text-sm font-bold text-gray-700 disabled:opacity-50"
                       >
-                        {uploadingRepairResult && repairUploadTicketId === ticket.id ? '涓婁紶涓?..' : '涓婁紶缁撴灉鐓х墖'}
+                        {uploadingRepairResult && repairUploadTicketId === ticket.id ? '上传中...' : '上传结果照片'}
                       </button>
                       <button type="button" onClick={() => handleCompleteRepair(ticket)} className="h-10 flex-1 rounded-lg bg-primary text-sm font-bold text-white">
-                        鎻愪氦缁撴灉
+                        提交结果
                       </button>
                     </div>
                   </div>
@@ -799,30 +805,30 @@ export default function AdminPage() {
         {currentTab === 'notifications' && permissions.notifications && (
           <>
             <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
-              <h2 className="text-base font-bold">鍙戝竷閫氱煡</h2>
-              <input className="w-full h-11 rounded-xl bg-gray-50 px-3 text-sm outline-none border border-gray-100" placeholder="閫氱煡鏍囬" value={noticeForm.title} onChange={(e) => setNoticeForm({ ...noticeForm, title: e.target.value })} />
-              <textarea className="w-full rounded-xl bg-gray-50 p-3 text-sm outline-none border border-gray-100 resize-none" rows={4} placeholder="閫氱煡鍐呭" value={noticeForm.content} onChange={(e) => setNoticeForm({ ...noticeForm, content: e.target.value })} />
+              <h2 className="text-base font-bold">通知公告</h2>
+              <input className="w-full h-11 rounded-xl bg-gray-50 px-3 text-sm outline-none border border-gray-100" placeholder="通知标题" value={noticeForm.title} onChange={(e) => setNoticeForm({ ...noticeForm, title: e.target.value })} />
+              <textarea className="w-full rounded-xl bg-gray-50 p-3 text-sm outline-none border border-gray-100 resize-none" rows={4} placeholder="通知内容" value={noticeForm.content} onChange={(e) => setNoticeForm({ ...noticeForm, content: e.target.value })} />
               <div className="grid grid-cols-2 gap-3">
                 <select className="h-11 rounded-xl bg-gray-50 px-3 text-sm outline-none border border-gray-100" value={noticeForm.type} onChange={(e) => setNoticeForm({ ...noticeForm, type: e.target.value as NotificationType })}>
                   {Object.entries(NOTIFICATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
                 <select className="h-11 rounded-xl bg-gray-50 px-3 text-sm outline-none border border-gray-100" value={noticeForm.targetUserId} onChange={(e) => setNoticeForm({ ...noticeForm, targetUserId: e.target.value })}>
-                  <option value="">鍏ㄦ牎閫氱煡</option>
+                  <option value="">全校通知</option>
                   {profiles.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </div>
-              <button type="button" onClick={handleCreateNotice} className="w-full h-11 rounded-xl bg-primary text-white text-sm font-bold">鍙戝竷閫氱煡</button>
+              <button type="button" onClick={handleCreateNotice} className="w-full h-11 rounded-xl bg-primary text-white text-sm font-bold">发布通知</button>
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-sm font-bold text-gray-500 px-1">閫氱煡鍒楄〃</h2>
+              <h2 className="text-sm font-bold text-gray-500 px-1">通知列表</h2>
               {notifications.map((notice) => (
                 <div key={notice.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold">{notice.title}</p>
                       <p className="text-xs text-gray-500 mt-1 line-clamp-2">{notice.content}</p>
-                      <p className="text-[10px] text-gray-400 mt-2">{NOTIFICATION_LABELS[notice.type]} 路 {new Date(notice.created_at).toLocaleDateString('zh-CN')}</p>
+                      <p className="text-[10px] text-gray-400 mt-2">{NOTIFICATION_LABELS[notice.type]} · {new Date(notice.created_at).toLocaleDateString('zh-CN')}</p>
                     </div>
                     <button type="button" onClick={() => handleDeleteNotice(notice.id)} className="size-8 rounded-full bg-red-50 text-red-500">
                       <Icon name="delete" className="text-[18px]" />
@@ -836,7 +842,7 @@ export default function AdminPage() {
 
         {currentTab === 'users' && permissions.users && (
           <section className="space-y-3">
-            <h2 className="text-sm font-bold text-gray-500 px-1">鐢ㄦ埛瑙掕壊</h2>
+            <h2 className="text-sm font-bold text-gray-500 px-1">用户管理</h2>
             {profiles.map((item) => (
               <div key={item.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center justify-between gap-3">
                 <div className="min-w-0">

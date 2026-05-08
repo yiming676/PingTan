@@ -21,7 +21,13 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   urgent: '紧急',
 }
 
-export const TICKET_STATUS_LABELS: TicketStatus[] = ['待处理', '处理中', '已完成']
+export const TICKET_STATUS_OPTIONS: TicketStatus[] = ['pending', 'processing', 'completed']
+
+export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
+  pending: '待处理',
+  processing: '处理中',
+  completed: '已完成',
+}
 
 export function isAdminRole(role?: UserRole | null): boolean {
   return !!role && ADMIN_ROLES.includes(role)

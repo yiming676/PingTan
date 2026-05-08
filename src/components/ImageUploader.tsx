@@ -41,7 +41,7 @@ export default function ImageUploader({
       if (!error && url && path) {
         newImages.push({ url, path })
       } else {
-        onError?.(`Image upload failed: ${error?.message || 'unknown error'}`)
+        onError?.(`图片上传失败：${error?.message || '未知错误'}`)
       }
     }
 
@@ -57,7 +57,7 @@ export default function ImageUploader({
     const image = images[index]
     if (image) {
       const { error } = await deleteRepairImageFile(image.path)
-      if (error) onError?.(`Image delete failed: ${error.message}`)
+      if (error) onError?.(`图片删除失败：${error.message}`)
     }
     const newImages = images.filter((_, i) => i !== index)
     onImagesChange(newImages)
@@ -72,12 +72,12 @@ export default function ImageUploader({
         >
           <button
             type="button"
-            onClick={() => setPreviewImage({ url: image.url, alt: `Uploaded image ${idx + 1}`, fileName: image.path.split('/').pop() })}
+            onClick={() => setPreviewImage({ url: image.url, alt: `已上传图片 ${idx + 1}`, fileName: image.path.split('/').pop() })}
             className="block h-full w-full"
-            aria-label={`Preview uploaded image ${idx + 1}`}
+            aria-label={`预览已上传图片 ${idx + 1}`}
           >
             <img
-              alt={`Uploaded image ${idx + 1}`}
+              alt={`已上传图片 ${idx + 1}`}
               className="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-500"
               src={image.url}
             />

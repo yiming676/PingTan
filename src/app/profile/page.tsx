@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchMyTickets, fetchRecentBookings, updateOwnProfile, uploadProfileAvatar } from '@/lib/services/campus'
-import { isAdminRole, ROLE_LABELS } from '@/lib/constants'
+import { isAdminRole, ROLE_LABELS, TICKET_STATUS_LABELS } from '@/lib/constants'
 import BottomNav from '@/components/BottomNav'
 import Icon from '@/components/Icon'
 import Toast from '@/components/Toast'
-import type { MealBooking, RepairTicket } from '@/lib/types'
+import type { MealBooking, RepairTicket, TicketStatus } from '@/lib/types'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -121,10 +121,12 @@ export default function ProfilePage() {
   }
 
   const getStatusStyle = (status: string) => {
-    if (status === '处理中') return 'bg-blue-50 text-blue-700'
-    if (status === '已完成') return 'bg-green-50 text-green-700'
+    if (status === 'processing') return 'bg-blue-50 text-blue-700'
+    if (status === 'completed') return 'bg-green-50 text-green-700'
     return 'bg-amber-50 text-amber-700'
   }
+
+  const getTicketStatusLabel = (status: string) => TICKET_STATUS_LABELS[status as TicketStatus] ?? status
 
   const currentProfile = savedProfile ?? profile
   const contactEmail = currentProfile?.email || (user?.email?.endsWith('@auth.pingtan.local') ? null : user?.email)
@@ -260,7 +262,7 @@ export default function ProfilePage() {
                     <span className="text-sm font-medium text-gray-900">{t.fault_type}</span>
                     <span className="text-xs text-gray-400 ml-2">{t.location}</span>
                   </div>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${getStatusStyle(t.status)}`}>{t.status}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${getStatusStyle(t.status)}`}>{getTicketStatusLabel(t.status)}</span>
                 </div>
               ))}
             </div>

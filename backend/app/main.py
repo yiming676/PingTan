@@ -16,8 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-settings.upload_path.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=settings.upload_path), name="uploads")
 
 app.include_router(auth.router)
 app.include_router(auth.profile_router)
@@ -26,6 +24,9 @@ app.include_router(repairs.router)
 app.include_router(notifications.router)
 app.include_router(uploads.router)
 app.include_router(admin.router)
+
+settings.upload_path.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.upload_path), name="uploads")
 
 
 @app.get("/health")

@@ -7,13 +7,14 @@ import {
   deleteRepairImageFile,
   fetchMyTickets,
 } from '@/lib/services/campus'
+import { TICKET_STATUS_LABELS } from '@/lib/constants'
 import Header from '@/components/Header'
 import Icon from '@/components/Icon'
 import RepairTypeButton from '@/components/RepairTypeButton'
 import ImageUploader from '@/components/ImageUploader'
 import ImagePreviewModal from '@/components/ImagePreviewModal'
 import Toast from '@/components/Toast'
-import type { FaultType, RepairTicket, UploadedImage } from '@/lib/types'
+import type { FaultType, RepairTicket, TicketStatus, UploadedImage } from '@/lib/types'
 
 const FAULT_TYPES: { type: FaultType; icon: string }[] = [
   { type: '水电门窗', icon: 'home_repair_service' },
@@ -22,7 +23,11 @@ const FAULT_TYPES: { type: FaultType; icon: string }[] = [
   { type: '其他', icon: 'more_horiz' },
 ]
 
-const QUICK_LOCATIONS = ['302教室', '办公楼 2F', '实验楼 1F', '图书馆']
+const QUICK_LOCATIONS = ['教学楼', '食堂', '宿舍', '办公楼', '实验楼', '图书馆', '操场', '体育馆']
+
+function getTicketStatusLabel(status: string) {
+  return TICKET_STATUS_LABELS[status as TicketStatus] ?? status
+}
 
 export default function RepairPage() {
   const { user } = useAuth()
@@ -92,8 +97,8 @@ export default function RepairPage() {
   }
 
   const getStatusStyle = (status: string) => {
-    if (status === '处理中') return 'bg-blue-50 text-blue-700'
-    if (status === '已完成') return 'bg-green-50 text-green-700'
+    if (status === 'processing') return 'bg-blue-50 text-blue-700'
+    if (status === 'completed') return 'bg-green-50 text-green-700'
     return 'bg-amber-50 text-amber-700'
   }
 
@@ -133,9 +138,15 @@ export default function RepairPage() {
                 value={location}
                 onChange={(event) => setLocation(event.target.value)}
                 className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-base rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary block p-4 pl-4 pr-12 transition-all placeholder:text-gray-400"
-                placeholder="请输入或选择教室，例如 302教室"
+                placeholder="请选择或输入地点，例如 教学楼 302"
                 type="text"
+                list="repair-location-options"
               />
+              <datalist id="repair-location-options">
+                {QUICK_LOCATIONS.map((loc) => (
+                  <option key={loc} value={loc} />
+                ))}
+              </datalist>
               <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
                 <Icon name="search" className="text-gray-400 group-focus-within:text-primary transition-colors" />
               </div>
@@ -211,7 +222,7 @@ export default function RepairPage() {
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span className="min-w-0 text-sm font-bold text-gray-900 break-words">{ticket.fault_type} · {ticket.location}</span>
                       <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${getStatusStyle(ticket.status)}`}>
-                        {ticket.status}
+                        {getTicketStatusLabel(ticket.status)}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 line-clamp-2">{ticket.description}</p>

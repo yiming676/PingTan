@@ -64,7 +64,7 @@ export async function bookMeal(
   selectedItems: SelectedMealItem[]
 ) {
   if (menu.booking_status !== 'open') {
-    return { error: new Error('Menu booking is closed') }
+    return { error: new Error('该餐次已停止报饭') }
   }
 
   const cleanItems = selectedItems
