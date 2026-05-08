@@ -352,6 +352,7 @@ export default function AdminPage() {
       bookingStatus: menu.booking_status,
     })
     setActiveTab('canteen')
+    setToast({ message: '已进入菜单编辑模式，请在上方表单修改后点击保存修改。', type: 'success' })
   }
 
   const handleCancelMenuEdit = () => {
