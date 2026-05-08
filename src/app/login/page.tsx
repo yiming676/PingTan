@@ -1,5 +1,6 @@
 'use client'
 
+import TextType from '@/components/react-bits/TextType'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
@@ -104,13 +105,32 @@ export default function LoginPage() {
                 </div>
               </div>
             </div>
-            <div className="text-center space-y-1">
-              <h1 className="text-2xl font-bold text-text-main">平潭二中移动校园</h1>
-              <p className="text-text-muted text-sm font-medium">
-                {isRegister ? '创建教职工账号' : '欢迎回来，请登录教职工账号'}
-              </p>
+            <div className="text-center space-y-1 min-h-[68px]">
+              <TextType
+                as="h1"
+                text="平潭二中移动校园"
+                typingSpeed={90}
+                initialDelay={150}
+                loop={false}
+                showCursor
+                cursorCharacter="_"
+                cursorBlinkDuration={0.6}
+                className="text-2xl font-bold text-text-main"
+              />
+
+              <TextType
+                key={isRegister ? 'register-subtitle' : 'login-subtitle'}
+                as="p"
+                text={isRegister ? '创建教职工账号' : '欢迎回来，请登录教职工账号'}
+                typingSpeed={45}
+                initialDelay={900}
+                loop={false}
+                showCursor
+                cursorCharacter="_"
+                cursorClassName="text-primary"
+                className="text-text-muted text-sm font-medium"
+              />
             </div>
-          </div>
 
           {!isRegister ? (
             <form className="flex flex-col gap-5" onSubmit={handleLogin}>
