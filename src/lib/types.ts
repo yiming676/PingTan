@@ -2,7 +2,7 @@
 // TypeScript 类型定义
 // ============================================================
 
-export type UserRole = 'teacher' | 'canteen_admin' | 'repair_admin' | 'super_admin'
+export type UserRole = 'teacher' | 'canteen_admin' | 'repair_admin' | 'canteen_repair_admin' | 'super_admin'
 
 export interface Profile {
   id: string

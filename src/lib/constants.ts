@@ -1,13 +1,14 @@
 import type { MealType, NotificationType, TicketStatus, UserRole } from '@/lib/types'
 
-export const ADMIN_ROLES: UserRole[] = ['canteen_admin', 'repair_admin', 'super_admin']
+export const ADMIN_ROLES: UserRole[] = ['canteen_admin', 'repair_admin', 'canteen_repair_admin', 'super_admin']
 
-export const ROLE_LABELS: Record<UserRole, string> = {
+export const ROLE_LABELS = {
   teacher: '普通用户',
   canteen_admin: '报饭管理员',
   repair_admin: '后勤管理员',
+  canteen_repair_admin: '报饭/后勤管理员',
   super_admin: '总管理员',
-}
+} satisfies Record<UserRole, string>
 
 export const MEAL_LABELS: Record<MealType, string> = {
   breakfast: '早餐',
@@ -34,11 +35,11 @@ export function isAdminRole(role?: UserRole | null): boolean {
 }
 
 export function canManageCanteen(role?: UserRole | null): boolean {
-  return role === 'canteen_admin' || role === 'super_admin'
+  return role === 'canteen_admin' || role === 'canteen_repair_admin' || role === 'super_admin'
 }
 
 export function canManageRepair(role?: UserRole | null): boolean {
-  return role === 'repair_admin' || role === 'super_admin'
+  return role === 'repair_admin' || role === 'canteen_repair_admin' || role === 'super_admin'
 }
 
 export function canManageNotifications(role?: UserRole | null): boolean {

@@ -36,6 +36,8 @@ import Header from '@/components/Header'
 import Icon from '@/components/Icon'
 import ImageUploader from '@/components/ImageUploader'
 import ImagePreviewModal from '@/components/ImagePreviewModal'
+import ImageStrip from '@/components/ImageStrip'
+import type { PreviewImage } from '@/components/ImagePreviewModal'
 import Toast from '@/components/Toast'
 import type {
   BookingWithProfile,
@@ -58,21 +60,16 @@ const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner']
 function getDefaultMenuForm() {
   const now = new Date()
   const date = new Date(now)
-  let mealType: MealType = 'breakfast'
+  const mealType: MealType = 'breakfast'
 
-  if (now.getHours() >= 20) {
+  if (now.getHours() >= 7) {
     date.setDate(date.getDate() + 1)
-    mealType = 'breakfast'
-  } else if (now.getHours() >= 14) {
-    mealType = 'dinner'
-  } else if (now.getHours() >= 10) {
-    mealType = 'lunch'
   }
 
   return {
     id: '',
     date: toDateString(date),
-    mealType,
+    mealType: mealType as MealType,
     items: '',
     description: '',
     imageUrl: '',
@@ -84,8 +81,9 @@ function getDefaultMenuForm() {
 
 function parseMenuItems(value: string) {
   return value
-    .split(/[\n,，、;；]+/)
-    .map((item) => item.replace(/^\s*(?:[-*]|\d+[.)、])\s*/, '').trim())
+    .replace(/(?:^|\n)\s*(?:[-*]|\d+[.)、])\s*/g, '\n')
+    .split(/[\s,，、;；]+/)
+    .map((item) => item.trim())
     .filter(Boolean)
 }
 
@@ -109,7 +107,39 @@ function getRepairResultImages(ticket: RepairTicket): RepairImage[] {
   }]
 }
 
-const emptyMenuForm = getDefaultMenuForm()
+function getRepairImageGallery(images: RepairImage[] | undefined, label: string): PreviewImage[] {
+  return (images ?? []).map((image, index) => ({
+    url: image.image_url,
+    alt: `${label} ${index + 1}`,
+    fileName: image.storage_path?.split('/').pop(),
+  }))
+}
+
+function hasAssignableAdminRole(role: UserRole, adminRole: 'canteen_admin' | 'repair_admin') {
+  if (role === 'super_admin') return true
+  if (role === 'canteen_repair_admin') return true
+  return role === adminRole
+}
+
+function getRoleWithAdminRole(
+  role: UserRole,
+  adminRole: 'canteen_admin' | 'repair_admin',
+  enabled: boolean
+): UserRole {
+  if (role === 'super_admin') return role
+
+  const hasCanteen = adminRole === 'canteen_admin'
+    ? enabled
+    : role === 'canteen_admin' || role === 'canteen_repair_admin'
+  const hasRepair = adminRole === 'repair_admin'
+    ? enabled
+    : role === 'repair_admin' || role === 'canteen_repair_admin'
+
+  if (hasCanteen && hasRepair) return 'canteen_repair_admin'
+  if (hasCanteen) return 'canteen_admin'
+  if (hasRepair) return 'repair_admin'
+  return 'teacher'
+}
 
 export default function AdminPage() {
   const router = useRouter()
@@ -125,12 +155,12 @@ export default function AdminPage() {
   const [busy, setBusy] = useState(false)
   const [uploadingMenuImage, setUploadingMenuImage] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
-  const [menuForm, setMenuForm] = useState(emptyMenuForm)
+  const [menuForm, setMenuForm] = useState(() => getDefaultMenuForm())
   const [selectedBookingDate, setSelectedBookingDate] = useState('')
   const [selectedBookingMeal, setSelectedBookingMeal] = useState<MealType>('breakfast')
   const [showAllBookingDates, setShowAllBookingDates] = useState(false)
   const [repairResultForm, setRepairResultForm] = useState<Record<string, { text: string; images: UploadedImage[] }>>({})
-  const [previewImage, setPreviewImage] = useState<{ url: string; alt: string; fileName?: string } | null>(null)
+  const [previewGallery, setPreviewGallery] = useState<{ images: PreviewImage[]; index: number } | null>(null)
   const [noticeForm, setNoticeForm] = useState({
     title: '',
     content: '',
@@ -269,6 +299,11 @@ export default function AdminPage() {
       return
     }
 
+    const mealLabel = MEAL_LABELS[menuForm.mealType]
+    const weekdayLabel = getWeekdayLabel(menuForm.date)
+    const confirmed = window.confirm(`请确认发布菜单：\n${menuForm.date}（${weekdayLabel}）${mealLabel}\n\n确认后将发布菜单并通知用户。`)
+    if (!confirmed) return
+
     setBusy(true)
     const { error } = await saveMenu({
       id: menuForm.id || undefined,
@@ -288,7 +323,6 @@ export default function AdminPage() {
       return
     }
 
-    const mealLabel = MEAL_LABELS[menuForm.mealType]
     const { error: noticeError } = await createNotification({
       title: `${menuForm.date} ${mealLabel}菜单已更新`,
       content: `${mealLabel}菜单已更新，请进入食堂报饭页面查看。`,
@@ -429,6 +463,14 @@ export default function AdminPage() {
     setToast({ message: '角色已更新', type: 'success' })
   }
 
+  const handleAdminRoleToggle = async (
+    item: Profile,
+    adminRole: 'canteen_admin' | 'repair_admin',
+    enabled: boolean
+  ) => {
+    await handleRoleChange(item.id, getRoleWithAdminRole(item.role, adminRole, enabled))
+  }
+
   const bookingStats = useMemo(() => {
     const stats = new Map<string, { date: string; mealType: MealType; count: number }>()
     bookings
@@ -481,6 +523,10 @@ export default function AdminPage() {
     return Array.from(totals.entries()).map(([name, quantity]) => ({ name, quantity }))
   }, [selectedMealBookings])
 
+  const setPreviewImage = useCallback((image: PreviewImage) => {
+    setPreviewGallery({ images: [image], index: 0 })
+  }, [])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-light">
@@ -504,7 +550,11 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-background-light text-gray-900 pb-12">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />
+      <ImagePreviewModal
+        images={previewGallery?.images ?? []}
+        initialIndex={previewGallery?.index ?? 0}
+        onClose={() => setPreviewGallery(null)}
+      />
       <Header title="管理后台" showBack />
 
       <main className="max-w-lg mx-auto px-4 py-5 space-y-5">
@@ -731,7 +781,7 @@ export default function AdminPage() {
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">{ticket.description}</p>
                 {ticket.repair_images && ticket.repair_images.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="hidden">
                     {ticket.repair_images.map((image, index) => (
                       <img
                         key={image.id}
@@ -742,12 +792,21 @@ export default function AdminPage() {
                     ))}
                   </div>
                 )}
+                {ticket.repair_images && ticket.repair_images.length > 0 && (
+                  <ImageStrip
+                    images={getRepairImageGallery(ticket.repair_images, '现场照片')}
+                    onPreview={(index) => setPreviewGallery({
+                      images: getRepairImageGallery(ticket.repair_images, '现场照片'),
+                      index,
+                    })}
+                  />
+                )}
                 {ticket.result_text ? (
                   <div className="rounded-xl bg-green-50 p-3">
                     <p className="text-xs font-bold text-green-700">维修结果</p>
                     <p className="mt-1 text-sm text-gray-700">{ticket.result_text}</p>
                     {getRepairResultImages(ticket).length > 0 && (
-                      <div className="mt-3 flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                      <div className="hidden">
                         {getRepairResultImages(ticket).map((image, index) => (
                           <img
                             key={image.id}
@@ -756,6 +815,17 @@ export default function AdminPage() {
                             src={image.image_url}
                           />
                         ))}
+                      </div>
+                    )}
+                    {getRepairResultImages(ticket).length > 0 && (
+                      <div className="mt-3">
+                        <ImageStrip
+                          images={getRepairImageGallery(getRepairResultImages(ticket), '维修结果照片')}
+                          onPreview={(index) => setPreviewGallery({
+                            images: getRepairImageGallery(getRepairResultImages(ticket), '维修结果照片'),
+                            index,
+                          })}
+                        />
                       </div>
                     )}
                   </div>
@@ -849,12 +919,32 @@ export default function AdminPage() {
                   <p className="text-sm font-bold truncate">{item.name}</p>
                   <p className="text-xs text-gray-400 truncate">{item.email || item.phone}</p>
                 </div>
-                <select className="h-10 rounded-lg bg-gray-50 px-2 text-xs font-bold outline-none border border-gray-100 disabled:opacity-60" value={item.role} disabled={item.role === 'super_admin'} onChange={(e) => handleRoleChange(item.id, e.target.value as UserRole)}>
-                  {(item.role === 'super_admin'
-                    ? [['super_admin', ROLE_LABELS.super_admin]]
-                    : Object.entries(ROLE_LABELS).filter(([role]) => role !== 'super_admin')
-                  ).map(([role, label]) => <option key={role} value={role}>{label}</option>)}
-                </select>
+                {item.role === 'super_admin' ? (
+                  <span className="shrink-0 rounded-lg bg-gray-50 px-3 py-2 text-xs font-bold text-gray-500">
+                    {ROLE_LABELS.super_admin}
+                  </span>
+                ) : (
+                  <div className="shrink-0 space-y-2 text-xs font-bold text-gray-600">
+                    <label className="flex items-center justify-end gap-2">
+                      <span>{ROLE_LABELS.canteen_admin}</span>
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-primary"
+                        checked={hasAssignableAdminRole(item.role, 'canteen_admin')}
+                        onChange={(e) => handleAdminRoleToggle(item, 'canteen_admin', e.target.checked)}
+                      />
+                    </label>
+                    <label className="flex items-center justify-end gap-2">
+                      <span>{ROLE_LABELS.repair_admin}</span>
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-primary"
+                        checked={hasAssignableAdminRole(item.role, 'repair_admin')}
+                        onChange={(e) => handleAdminRoleToggle(item, 'repair_admin', e.target.checked)}
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
             ))}
           </section>

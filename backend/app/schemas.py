@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-UserRole = Literal["teacher", "canteen_admin", "repair_admin", "super_admin"]
+UserRole = Literal["teacher", "canteen_admin", "repair_admin", "canteen_repair_admin", "super_admin"]
 MealType = Literal["breakfast", "lunch", "dinner"]
 BookingStatus = Literal["booked", "cancelled"]
 MenuBookingStatus = Literal["open", "closed"]

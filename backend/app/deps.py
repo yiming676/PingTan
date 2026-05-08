@@ -9,6 +9,11 @@ from app.models import Profile, User
 from app.security import decode_access_token
 
 
+ROLE_IMPLICATIONS = {
+    "canteen_repair_admin": {"canteen_admin", "repair_admin"},
+}
+
+
 def get_current_user(
     authorization: str | None = Header(default=None),
     token_cookie: str | None = Cookie(default=None, alias=settings.auth_cookie_name),
@@ -40,7 +45,9 @@ def get_current_user(
 
 def require_roles(*roles: str):
     def dependency(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.profile.role == "super_admin" or current_user.profile.role in roles:
+        current_role = current_user.profile.role
+        effective_roles = {current_role, *ROLE_IMPLICATIONS.get(current_role, set())}
+        if current_role == "super_admin" or effective_roles.intersection(roles):
             return current_user
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
 

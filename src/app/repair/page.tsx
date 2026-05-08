@@ -13,6 +13,8 @@ import Icon from '@/components/Icon'
 import RepairTypeButton from '@/components/RepairTypeButton'
 import ImageUploader from '@/components/ImageUploader'
 import ImagePreviewModal from '@/components/ImagePreviewModal'
+import ImageStrip from '@/components/ImageStrip'
+import type { PreviewImage } from '@/components/ImagePreviewModal'
 import Toast from '@/components/Toast'
 import type { FaultType, RepairImage, RepairTicket, TicketStatus, UploadedImage } from '@/lib/types'
 
@@ -41,6 +43,14 @@ function getRepairResultImages(ticket: RepairTicket): RepairImage[] {
   }]
 }
 
+function getRepairImageGallery(images: RepairImage[] | undefined, label: string): PreviewImage[] {
+  return (images ?? []).map((image, index) => ({
+    url: image.image_url,
+    alt: `${label} ${index + 1}`,
+    fileName: image.storage_path?.split('/').pop(),
+  }))
+}
+
 export default function RepairPage() {
   const { user } = useAuth()
 
@@ -52,7 +62,7 @@ export default function RepairPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [myTickets, setMyTickets] = useState<RepairTicket[]>([])
   const [showTickets, setShowTickets] = useState(false)
-  const [previewImage, setPreviewImage] = useState<{ url: string; alt: string; fileName?: string } | null>(null)
+  const [previewGallery, setPreviewGallery] = useState<{ images: PreviewImage[]; index: number } | null>(null)
 
   const loadTickets = useCallback(async () => {
     if (!user) return
@@ -114,10 +124,18 @@ export default function RepairPage() {
     return 'bg-amber-50 text-amber-700'
   }
 
+  const setPreviewImage = useCallback((image: PreviewImage) => {
+    setPreviewGallery({ images: [image], index: 0 })
+  }, [])
+
   return (
     <div className="bg-background-light font-display text-gray-900 min-h-screen">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />
+      <ImagePreviewModal
+        images={previewGallery?.images ?? []}
+        initialIndex={previewGallery?.index ?? 0}
+        onClose={() => setPreviewGallery(null)}
+      />
 
       <Header title="设施报修" showBack />
 
@@ -239,7 +257,7 @@ export default function RepairPage() {
                     </div>
                     <p className="text-xs text-gray-500 line-clamp-2">{ticket.description}</p>
                     {ticket.repair_images && ticket.repair_images.length > 0 && (
-                      <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="hidden">
                         {ticket.repair_images.map((image, index) => (
                           <button
                             key={image.id}
@@ -257,12 +275,23 @@ export default function RepairPage() {
                         ))}
                       </div>
                     )}
+                    {ticket.repair_images && ticket.repair_images.length > 0 && (
+                      <div className="mt-3">
+                        <ImageStrip
+                          images={getRepairImageGallery(ticket.repair_images, '现场照片')}
+                          onPreview={(index) => setPreviewGallery({
+                            images: getRepairImageGallery(ticket.repair_images, '现场照片'),
+                            index,
+                          })}
+                        />
+                      </div>
+                    )}
                     {ticket.result_text && (
                       <div className="mt-3 rounded-lg bg-green-50 p-3">
                         <p className="text-xs font-bold text-green-700">维修结果</p>
                         <p className="mt-1 text-xs text-gray-600">{ticket.result_text}</p>
                         {getRepairResultImages(ticket).length > 0 && (
-                          <div className="mt-2 flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                          <div className="hidden">
                             {getRepairResultImages(ticket).map((image, index) => (
                               <button
                                 key={image.id}
@@ -274,6 +303,17 @@ export default function RepairPage() {
                                 <img alt={`维修结果照片 ${index + 1}`} className="h-full w-full object-cover" src={image.image_url} />
                               </button>
                             ))}
+                          </div>
+                        )}
+                        {getRepairResultImages(ticket).length > 0 && (
+                          <div className="mt-2">
+                            <ImageStrip
+                              images={getRepairImageGallery(getRepairResultImages(ticket), '维修结果照片')}
+                              onPreview={(index) => setPreviewGallery({
+                                images: getRepairImageGallery(getRepairResultImages(ticket), '维修结果照片'),
+                                index,
+                              })}
+                            />
                           </div>
                         )}
                       </div>

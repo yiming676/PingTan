@@ -31,7 +31,10 @@ class User(Base, TimestampMixin):
 class Profile(Base, TimestampMixin):
     __tablename__ = "profiles"
     __table_args__ = (
-        CheckConstraint("role in ('teacher','canteen_admin','repair_admin','super_admin')", name="profiles_role_check"),
+        CheckConstraint(
+            "role in ('teacher','canteen_admin','repair_admin','canteen_repair_admin','super_admin')",
+            name="profiles_role_check",
+        ),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)

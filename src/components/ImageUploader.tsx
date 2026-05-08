@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { deleteRepairImageFile, uploadRepairImage } from '@/lib/services/campus'
 import Icon from '@/components/Icon'
 import ImagePreviewModal from '@/components/ImagePreviewModal'
+import type { PreviewImage } from '@/components/ImagePreviewModal'
 import type { UploadedImage } from '@/lib/types'
 
 interface ImageUploaderProps {
@@ -25,7 +26,15 @@ export default function ImageUploader({
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
-  const [previewImage, setPreviewImage] = useState<{ url: string; alt: string; fileName?: string } | null>(null)
+  const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null)
+  const previewImages: PreviewImage[] = images.map((image, index) => ({
+    url: image.url,
+    alt: `已上传图片 ${index + 1}`,
+    fileName: image.path.split('/').pop(),
+  }))
+  const previewIndex = previewImage
+    ? Math.max(previewImages.findIndex((image) => image.url === previewImage.url), 0)
+    : 0
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -80,7 +89,7 @@ export default function ImageUploader({
           >
             <img
               alt={`已上传图片 ${idx + 1}`}
-              className="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-500"
+              className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
               src={image.url}
             />
           </button>
@@ -122,7 +131,11 @@ export default function ImageUploader({
         className="hidden"
         onChange={handleUpload}
       />
-      <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />
+      <ImagePreviewModal
+        images={previewImage ? previewImages : []}
+        initialIndex={previewIndex}
+        onClose={() => setPreviewImage(null)}
+      />
     </div>
   )
 }
