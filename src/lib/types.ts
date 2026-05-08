@@ -60,6 +60,7 @@ export interface RepairTicket {
   created_at: string
   updated_at: string
   repair_images?: RepairImage[]
+  repair_result_images?: RepairImage[]
 }
 
 export interface RepairImage {

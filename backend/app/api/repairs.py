@@ -14,7 +14,10 @@ router = APIRouter(prefix="/repair-tickets", tags=["repairs"])
 def my_tickets(limit: int = 10, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     rows = (
         db.query(RepairTicket)
-        .options(joinedload(RepairTicket.repair_images))
+        .options(
+            joinedload(RepairTicket.repair_images),
+            joinedload(RepairTicket.repair_result_images),
+        )
         .filter(RepairTicket.user_id == current_user.id)
         .order_by(RepairTicket.created_at.desc())
         .limit(min(max(limit, 1), 100))

@@ -21,7 +21,6 @@ export default function LoginPage() {
   const [regEmail, setRegEmail] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regName, setRegName] = useState('')
-  const [regEmailConfirmed, setRegEmailConfirmed] = useState(false)
   const [regPhone, setRegPhone] = useState('')
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -54,8 +53,8 @@ export default function LoginPage() {
       return
     }
 
-    if (!email && !phone) {
-      setToast({ message: '请至少填写邮箱或手机号', type: 'error' })
+    if (!phone) {
+      setToast({ message: '请填写手机号', type: 'error' })
       return
     }
 
@@ -64,12 +63,7 @@ export default function LoginPage() {
       return
     }
 
-    if (email && !regEmailConfirmed) {
-      setToast({ message: '请确认邮箱填写正确', type: 'error' })
-      return
-    }
-
-    if (phone && !/^1\d{10}$/.test(phone)) {
+    if (!/^1\d{10}$/.test(phone)) {
       setToast({ message: '请输入有效的 11 位手机号', type: 'error' })
       return
     }
@@ -192,10 +186,7 @@ export default function LoginPage() {
                   <Icon name="mail" className="absolute left-4 text-text-muted group-focus-within:text-primary transition-colors" />
                   <input
                     value={regEmail}
-                    onChange={(event) => {
-                      setRegEmail(event.target.value)
-                      if (!event.target.value.trim()) setRegEmailConfirmed(false)
-                    }}
+                    onChange={(event) => setRegEmail(event.target.value)}
                     className="w-full h-12 pl-11 pr-4 bg-background-light border border-transparent rounded-xl focus:bg-white focus:border-primary focus:ring-0 transition-all outline-none text-text-main placeholder:text-gray-400 font-medium"
                     placeholder="请输入邮箱"
                     type="email"
@@ -203,20 +194,8 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {regEmail.trim() && (
-                <label className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                  <input
-                    checked={regEmailConfirmed}
-                    onChange={(event) => setRegEmailConfirmed(event.target.checked)}
-                    className="mt-0.5 size-4 rounded border-amber-300 accent-primary"
-                    type="checkbox"
-                  />
-                  <span>我已确认邮箱填写正确，注册后不可自行修改。</span>
-                </label>
-              )}
-
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-main ml-1">手机号</label>
+                <label className="text-xs font-semibold text-text-main ml-1">手机号 *</label>
                 <div className="relative flex items-center group">
                   <Icon name="phone" className="absolute left-4 text-text-muted group-focus-within:text-primary transition-colors" />
                   <input

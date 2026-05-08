@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchMyTickets, fetchRecentBookings, updateOwnProfile, uploadProfileAvatar } from '@/lib/services/campus'
 import { isAdminRole, ROLE_LABELS, TICKET_STATUS_LABELS } from '@/lib/constants'
+import { isEmailIdentifier } from '@/lib/utils'
 import BottomNav from '@/components/BottomNav'
 import Icon from '@/components/Icon'
 import Toast from '@/components/Toast'
@@ -21,7 +22,8 @@ export default function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [savedProfile, setSavedProfile] = useState(profile)
-  const [profileForm, setProfileForm] = useState({ name: '', phone: '' })
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '', email: '' })
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   useEffect(() => {
@@ -30,6 +32,7 @@ export default function ProfilePage() {
     setProfileForm({
       name: profile.name || '',
       phone: profile.phone || '',
+      email: profile.email || '',
     })
   }, [profile])
 
@@ -59,6 +62,7 @@ export default function ProfilePage() {
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !user) return
+    if (!editingProfile) return
 
     if (!file.type.startsWith('image/')) {
       setToast({ message: '请选择图片文件', type: 'error' })
@@ -86,11 +90,21 @@ export default function ProfilePage() {
   const handleProfileSave = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!user) return
+    if (!editingProfile) {
+      setEditingProfile(true)
+      return
+    }
+    const email = profileForm.email.trim()
+    if (email && !isEmailIdentifier(email)) {
+      setToast({ message: '请输入有效邮箱', type: 'error' })
+      return
+    }
 
     setSavingProfile(true)
     const { profile: updatedProfile, error } = await updateOwnProfile({
       name: profileForm.name,
       phone: profileForm.phone,
+      email: email || null,
     })
     setSavingProfile(false)
 
@@ -103,7 +117,9 @@ export default function ProfilePage() {
     setProfileForm({
       name: updatedProfile.name || '',
       phone: updatedProfile.phone || '',
+      email: updatedProfile.email || '',
     })
+    setEditingProfile(false)
     setToast({ message: '个人信息已保存', type: 'success' })
   }
 
@@ -143,8 +159,10 @@ export default function ProfilePage() {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={() => avatarInputRef.current?.click()}
-            disabled={uploadingAvatar}
+            onClick={() => {
+              if (editingProfile) avatarInputRef.current?.click()
+            }}
+            disabled={uploadingAvatar || !editingProfile}
             className="relative h-20 w-20 shrink-0 rounded-full bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden disabled:opacity-70"
             aria-label="上传头像"
           >
@@ -185,7 +203,8 @@ export default function ProfilePage() {
               <input
                 value={profileForm.name}
                 onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))}
-                className="h-11 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-medium text-gray-900 outline-none focus:border-primary focus:bg-white"
+                disabled={!editingProfile}
+                className="h-11 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-medium text-gray-900 outline-none focus:border-primary focus:bg-white disabled:bg-gray-100 disabled:text-gray-500"
                 placeholder="请输入用户名"
               />
             </label>
@@ -194,17 +213,21 @@ export default function ProfilePage() {
               <input
                 value={profileForm.phone}
                 onChange={(event) => setProfileForm((current) => ({ ...current, phone: event.target.value }))}
-                className="h-11 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-medium text-gray-900 outline-none focus:border-primary focus:bg-white"
+                disabled={!editingProfile}
+                className="h-11 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-medium text-gray-900 outline-none focus:border-primary focus:bg-white disabled:bg-gray-100 disabled:text-gray-500"
                 placeholder="请输入手机号"
                 type="tel"
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-bold text-gray-500">邮箱（注册后不可自行修改）</span>
+              <span className="mb-1 block text-xs font-bold text-gray-500">邮箱</span>
               <input
-                value={currentProfile?.email || user?.email || '-'}
-                readOnly
-                className="h-11 w-full rounded-xl border border-gray-100 bg-gray-100 px-3 text-sm font-medium text-gray-500 outline-none"
+                value={profileForm.email}
+                onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
+                disabled={!editingProfile}
+                className="h-11 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-medium text-gray-900 outline-none focus:border-primary focus:bg-white disabled:bg-gray-100 disabled:text-gray-500"
+                placeholder="请输入邮箱（选填）"
+                type="email"
               />
             </label>
             <button
@@ -213,7 +236,7 @@ export default function ProfilePage() {
               className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white disabled:opacity-50"
             >
               {savingProfile && <Icon name="progress_activity" className="animate-spin text-[18px]" />}
-              保存个人信息
+              {editingProfile ? '保存个人信息' : '修改个人信息'}
             </button>
           </form>
         </section>

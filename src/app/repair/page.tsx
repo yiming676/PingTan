@@ -14,7 +14,7 @@ import RepairTypeButton from '@/components/RepairTypeButton'
 import ImageUploader from '@/components/ImageUploader'
 import ImagePreviewModal from '@/components/ImagePreviewModal'
 import Toast from '@/components/Toast'
-import type { FaultType, RepairTicket, TicketStatus, UploadedImage } from '@/lib/types'
+import type { FaultType, RepairImage, RepairTicket, TicketStatus, UploadedImage } from '@/lib/types'
 
 const FAULT_TYPES: { type: FaultType; icon: string }[] = [
   { type: '水电门窗', icon: 'home_repair_service' },
@@ -27,6 +27,18 @@ const QUICK_LOCATIONS = ['教学楼', '食堂', '宿舍', '办公楼', '实验�
 
 function getTicketStatusLabel(status: string) {
   return TICKET_STATUS_LABELS[status as TicketStatus] ?? status
+}
+
+function getRepairResultImages(ticket: RepairTicket): RepairImage[] {
+  if (ticket.repair_result_images?.length) return ticket.repair_result_images
+  if (!ticket.result_image_url) return []
+  return [{
+    id: `${ticket.id}-result-image`,
+    ticket_id: ticket.id,
+    image_url: ticket.result_image_url,
+    storage_path: ticket.result_image_path || '',
+    created_at: ticket.completed_at || ticket.updated_at,
+  }]
 }
 
 export default function RepairPage() {
@@ -192,12 +204,12 @@ export default function RepairPage() {
               <Icon name="photo_camera" className="text-primary text-[20px]" />
               <span className="text-base font-bold text-gray-900">现场照片</span>
             </div>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">最多 3 张</span>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">最多 5 张</span>
           </div>
           {user && (
             <ImageUploader
               images={images}
-              maxImages={3}
+              maxImages={5}
               userId={user.id}
               onImagesChange={setImages}
               onError={(message) => setToast({ message, type: 'error' })}
@@ -249,15 +261,20 @@ export default function RepairPage() {
                       <div className="mt-3 rounded-lg bg-green-50 p-3">
                         <p className="text-xs font-bold text-green-700">维修结果</p>
                         <p className="mt-1 text-xs text-gray-600">{ticket.result_text}</p>
-                        {ticket.result_image_url && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewImage({ url: ticket.result_image_url!, alt: '维修结果照片', fileName: ticket.result_image_path?.split('/').pop() })}
-                            className="mt-2 block h-28 w-full overflow-hidden rounded-lg bg-gray-100"
-                            aria-label="查看维修结果照片"
-                          >
-                            <img alt="维修结果照片" className="h-full w-full object-cover" src={ticket.result_image_url} />
-                          </button>
+                        {getRepairResultImages(ticket).length > 0 && (
+                          <div className="mt-2 flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                            {getRepairResultImages(ticket).map((image, index) => (
+                              <button
+                                key={image.id}
+                                type="button"
+                                onClick={() => setPreviewImage({ url: image.image_url, alt: `维修结果照片 ${index + 1}`, fileName: image.storage_path?.split('/').pop() })}
+                                className="size-24 shrink-0 overflow-hidden rounded-lg bg-gray-100"
+                                aria-label={`查看维修结果照片 ${index + 1}`}
+                              >
+                                <img alt={`维修结果照片 ${index + 1}`} className="h-full w-full object-cover" src={image.image_url} />
+                              </button>
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}

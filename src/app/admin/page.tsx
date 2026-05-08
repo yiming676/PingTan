@@ -34,6 +34,7 @@ import {
 import { toDateString } from '@/lib/utils'
 import Header from '@/components/Header'
 import Icon from '@/components/Icon'
+import ImageUploader from '@/components/ImageUploader'
 import ImagePreviewModal from '@/components/ImagePreviewModal'
 import Toast from '@/components/Toast'
 import type {
@@ -43,8 +44,10 @@ import type {
   Notification,
   NotificationType,
   Profile,
+  RepairImage,
   RepairTicket,
   TicketStatus,
+  UploadedImage,
   UserRole,
 } from '@/lib/types'
 
@@ -94,13 +97,24 @@ function getTicketStatusLabel(status: string) {
   return TICKET_STATUS_LABELS[status as TicketStatus] ?? status
 }
 
+function getRepairResultImages(ticket: RepairTicket): RepairImage[] {
+  if (ticket.repair_result_images?.length) return ticket.repair_result_images
+  if (!ticket.result_image_url) return []
+  return [{
+    id: `${ticket.id}-result-image`,
+    ticket_id: ticket.id,
+    image_url: ticket.result_image_url,
+    storage_path: ticket.result_image_path || '',
+    created_at: ticket.completed_at || ticket.updated_at,
+  }]
+}
+
 const emptyMenuForm = getDefaultMenuForm()
 
 export default function AdminPage() {
   const router = useRouter()
   const { profile, loading } = useAuth()
   const menuImageInputRef = useRef<HTMLInputElement>(null)
-  const repairResultInputRef = useRef<HTMLInputElement>(null)
 
   const [activeTab, setActiveTab] = useState<AdminTab>('canteen')
   const [menus, setMenus] = useState<MealMenu[]>([])
@@ -110,14 +124,12 @@ export default function AdminPage() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [busy, setBusy] = useState(false)
   const [uploadingMenuImage, setUploadingMenuImage] = useState(false)
-  const [uploadingRepairResult, setUploadingRepairResult] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [menuForm, setMenuForm] = useState(emptyMenuForm)
   const [selectedBookingDate, setSelectedBookingDate] = useState('')
   const [selectedBookingMeal, setSelectedBookingMeal] = useState<MealType>('breakfast')
   const [showAllBookingDates, setShowAllBookingDates] = useState(false)
-  const [repairResultForm, setRepairResultForm] = useState<Record<string, { text: string; imageUrl: string; imagePath: string }>>({})
-  const [repairUploadTicketId, setRepairUploadTicketId] = useState<string | null>(null)
+  const [repairResultForm, setRepairResultForm] = useState<Record<string, { text: string; images: UploadedImage[] }>>({})
   const [previewImage, setPreviewImage] = useState<{ url: string; alt: string; fileName?: string } | null>(null)
   const [noticeForm, setNoticeForm] = useState({
     title: '',
@@ -334,37 +346,6 @@ export default function AdminPage() {
     setToast({ message: '工单状态已更新', type: 'success' })
   }
 
-  const handleRepairResultImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    const ticketId = repairUploadTicketId
-    if (!file || !profile || !ticketId) return
-
-    if (!file.type.startsWith('image/')) {
-      setToast({ message: '请上传图片文件', type: 'error' })
-      return
-    }
-
-    setUploadingRepairResult(true)
-    const { url, path, error } = await uploadRepairResultImage(profile.id, file)
-    setUploadingRepairResult(false)
-    if (repairResultInputRef.current) repairResultInputRef.current.value = ''
-
-    if (error || !url || !path) {
-      setToast({ message: `维修结果图片上传失败：${error?.message || '未知错误'}`, type: 'error' })
-      return
-    }
-
-    setRepairResultForm((current) => ({
-      ...current,
-      [ticketId]: {
-        text: current[ticketId]?.text ?? '',
-        imageUrl: url,
-        imagePath: path,
-      },
-    }))
-    setToast({ message: '维修结果图片已上传', type: 'success' })
-  }
-
   const handleCompleteRepair = async (ticket: RepairTicket) => {
     const form = repairResultForm[ticket.id]
     if (!form?.text?.trim()) {
@@ -376,8 +357,9 @@ export default function AdminPage() {
     const { error } = await completeRepairTicket({
       ticketId: ticket.id,
       resultText: form.text.trim(),
-      resultImageUrl: form.imageUrl || null,
-      resultImagePath: form.imagePath || null,
+      resultImageUrl: form.images[0]?.url ?? null,
+      resultImagePath: form.images[0]?.path ?? null,
+      resultImages: form.images,
     })
 
     if (error) {
@@ -394,6 +376,11 @@ export default function AdminPage() {
     })
     setBusy(false)
     await reloadTickets()
+    setRepairResultForm((current) => {
+      const next = { ...current }
+      delete next[ticket.id]
+      return next
+    })
     setToast({ message: '维修结果已提交并已通知用户', type: 'success' })
   }
 
@@ -727,7 +714,6 @@ export default function AdminPage() {
             }}
           >
             <h2 className="text-sm font-bold text-gray-500 px-1">维修工单</h2>
-            <input ref={repairResultInputRef} type="file" accept="image/*" className="hidden" onChange={handleRepairResultImageChange} />
             {tickets.length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center text-gray-400">暂无工单</div>
             ) : tickets.map((ticket) => (
@@ -760,7 +746,18 @@ export default function AdminPage() {
                   <div className="rounded-xl bg-green-50 p-3">
                     <p className="text-xs font-bold text-green-700">维修结果</p>
                     <p className="mt-1 text-sm text-gray-700">{ticket.result_text}</p>
-                    {ticket.result_image_url && <img alt="维修结果" className="mt-3 h-32 w-full rounded-lg object-cover" src={ticket.result_image_url} />}
+                    {getRepairResultImages(ticket).length > 0 && (
+                      <div className="mt-3 flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                        {getRepairResultImages(ticket).map((image, index) => (
+                          <img
+                            key={image.id}
+                            alt={`维修结果 ${index + 1}`}
+                            className="size-24 shrink-0 rounded-lg object-cover"
+                            src={image.image_url}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2 rounded-xl bg-gray-50 p-3">
@@ -773,24 +770,27 @@ export default function AdminPage() {
                         ...current,
                         [ticket.id]: {
                           text: e.target.value,
-                          imageUrl: current[ticket.id]?.imageUrl ?? '',
-                          imagePath: current[ticket.id]?.imagePath ?? '',
+                          images: current[ticket.id]?.images ?? [],
                         },
                       }))}
                     />
-                    {repairResultForm[ticket.id]?.imageUrl && <img alt="维修结果预览" className="h-28 w-full rounded-lg object-cover" src={repairResultForm[ticket.id].imageUrl} />}
+                    {profile && (
+                      <ImageUploader
+                        images={repairResultForm[ticket.id]?.images ?? []}
+                        maxImages={5}
+                        userId={profile.id}
+                        uploadImage={uploadRepairResultImage}
+                        onImagesChange={(images) => setRepairResultForm((current) => ({
+                          ...current,
+                          [ticket.id]: {
+                            text: current[ticket.id]?.text ?? '',
+                            images,
+                          },
+                        }))}
+                        onError={(message) => setToast({ message, type: 'error' })}
+                      />
+                    )}
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={uploadingRepairResult}
-                        onClick={() => {
-                          setRepairUploadTicketId(ticket.id)
-                          repairResultInputRef.current?.click()
-                        }}
-                        className="h-10 flex-1 rounded-lg bg-white text-sm font-bold text-gray-700 disabled:opacity-50"
-                      >
-                        {uploadingRepairResult && repairUploadTicketId === ticket.id ? '上传中...' : '上传结果照片'}
-                      </button>
                       <button type="button" onClick={() => handleCompleteRepair(ticket)} className="h-10 flex-1 rounded-lg bg-primary text-sm font-bold text-white">
                         提交结果
                       </button>

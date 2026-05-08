@@ -55,6 +55,7 @@ def ticket_out(ticket: RepairTicket, include_profile: bool = False) -> dict:
         "created_at": ticket.created_at,
         "updated_at": ticket.updated_at,
         "repair_images": ticket.repair_images or [],
+        "repair_result_images": ticket.repair_result_images or [],
     }
     if include_profile and ticket.profile:
         result["profiles"] = {

@@ -27,7 +27,7 @@ export async function fetchProfile(_userId?: string) {
   }
 }
 
-export async function updateOwnProfile(payload: { name: string; phone: string }) {
+export async function updateOwnProfile(payload: { name: string; phone: string; email?: string | null }) {
   try {
     const profile = await apiRequest<Profile>('/profile/me', {
       method: 'PATCH',
@@ -320,6 +320,7 @@ export async function completeRepairTicket(payload: {
   resultText: string
   resultImageUrl: string | null
   resultImagePath: string | null
+  resultImages?: UploadedImage[]
 }) {
   try {
     await apiRequest<RepairTicket>(`/admin/tickets/${payload.ticketId}/complete`, {
@@ -328,6 +329,7 @@ export async function completeRepairTicket(payload: {
         result_text: payload.resultText,
         result_image_url: payload.resultImageUrl,
         result_image_path: payload.resultImagePath,
+        result_images: payload.resultImages ?? [],
       }),
     })
     return { error: null }

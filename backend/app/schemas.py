@@ -54,6 +54,7 @@ class AuthOut(BaseModel):
 class ProfileUpdateIn(BaseModel):
     name: str = Field(min_length=1)
     phone: str
+    email: EmailStr | None = None
 
 
 class SelectedMealItem(BaseModel):
@@ -118,7 +119,7 @@ class RepairTicketCreateIn(BaseModel):
     fault_type: str
     location: str
     description: str
-    images: list[UploadedImage] = Field(default_factory=list)
+    images: list[UploadedImage] = Field(default_factory=list, max_length=5)
 
 
 class RepairTicketOut(BaseModel):
@@ -137,6 +138,7 @@ class RepairTicketOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     repair_images: list[RepairImageOut] = Field(default_factory=list)
+    repair_result_images: list[RepairImageOut] = Field(default_factory=list)
     profiles: dict[str, str | None] | None = None
 
 
@@ -185,6 +187,7 @@ class TicketCompleteIn(BaseModel):
     result_text: str
     result_image_url: str | None = None
     result_image_path: str | None = None
+    result_images: list[UploadedImage] = Field(default_factory=list, max_length=5)
 
 
 class RoleUpdateIn(BaseModel):

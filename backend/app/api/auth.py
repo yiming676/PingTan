@@ -90,12 +90,17 @@ def update_profile(payload: ProfileUpdateIn, current_user: User = Depends(get_cu
     phone = normalize_phone_digits(payload.phone)
     if phone and (not phone.startswith("1") or len(phone) != 11):
         raise HTTPException(status_code=400, detail="Phone number must be 11 digits")
+    email = str(payload.email).lower() if payload.email else None
 
     duplicate = db.query(User).filter(User.phone == phone, User.id != current_user.id).first() if phone else None
     if duplicate:
         raise HTTPException(status_code=409, detail="Phone number is already bound to another account")
+    duplicate_email = db.query(User).filter(User.email == email, User.id != current_user.id).first() if email else None
+    if duplicate_email:
+        raise HTTPException(status_code=409, detail="Email is already bound to another account")
 
     current_user.phone = phone
+    current_user.email = email
     current_user.profile.name = payload.name.strip()
     db.commit()
     db.refresh(current_user)

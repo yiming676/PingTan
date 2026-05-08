@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import require_roles
-from app.models import MealBooking, MealMenu, Notification, Profile, RepairTicket, User
+from app.models import MealBooking, MealMenu, Notification, Profile, RepairResultImage, RepairTicket, User
 from app.schemas import (
     MealBookingOut,
     MealMenuOut,
@@ -19,6 +19,7 @@ from app.schemas import (
     RoleUpdateIn,
     TicketCompleteIn,
     TicketStatusIn,
+    UploadedImage,
 )
 from app.serializers import booking_out, profile_out, ticket_out
 
@@ -104,6 +105,7 @@ def admin_tickets(limit: int = 100, _: User = Depends(require_roles("repair_admi
         .options(
             joinedload(RepairTicket.profile).joinedload(Profile.user),
             joinedload(RepairTicket.repair_images),
+            joinedload(RepairTicket.repair_result_images),
         )
         .order_by(RepairTicket.created_at.desc())
         .limit(min(max(limit, 1), 500))
@@ -125,12 +127,25 @@ def update_ticket_status(ticket_id: UUID, payload: TicketStatusIn, _: User = Dep
 
 @router.post("/tickets/{ticket_id}/complete", response_model=RepairTicketOut)
 def complete_ticket(ticket_id: UUID, payload: TicketCompleteIn, _: User = Depends(require_roles("repair_admin")), db: Session = Depends(get_db)):
-    ticket = db.query(RepairTicket).filter(RepairTicket.id == ticket_id).first()
+    ticket = (
+        db.query(RepairTicket)
+        .options(joinedload(RepairTicket.repair_result_images))
+        .filter(RepairTicket.id == ticket_id)
+        .first()
+    )
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
+    result_images = payload.result_images
+    if not result_images and payload.result_image_url and payload.result_image_path:
+        result_images = [UploadedImage(url=payload.result_image_url, path=payload.result_image_path)]
+
     ticket.result_text = payload.result_text
-    ticket.result_image_url = payload.result_image_url
-    ticket.result_image_path = payload.result_image_path
+    ticket.result_image_url = result_images[0].url if result_images else None
+    ticket.result_image_path = result_images[0].path if result_images else None
+    ticket.repair_result_images = [
+        RepairResultImage(image_url=image.url, storage_path=image.path)
+        for image in result_images
+    ]
     ticket.status = "completed"
     ticket.completed_at = datetime.utcnow()
     db.commit()

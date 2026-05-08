@@ -102,6 +102,7 @@ class RepairTicket(Base, TimestampMixin):
 
     profile: Mapped[Profile] = relationship(back_populates="tickets")
     repair_images: Mapped[list["RepairImage"]] = relationship(back_populates="ticket", cascade="all, delete-orphan")
+    repair_result_images: Mapped[list["RepairResultImage"]] = relationship(back_populates="ticket", cascade="all, delete-orphan")
 
 
 class RepairImage(Base):
@@ -114,6 +115,18 @@ class RepairImage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     ticket: Mapped[RepairTicket] = relationship(back_populates="repair_images")
+
+
+class RepairResultImage(Base):
+    __tablename__ = "repair_result_images"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ticket_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("repair_tickets.id", ondelete="CASCADE"), nullable=False)
+    image_url: Mapped[str] = mapped_column(Text, nullable=False)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    ticket: Mapped[RepairTicket] = relationship(back_populates="repair_result_images")
 
 
 class Notification(Base):

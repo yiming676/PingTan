@@ -12,14 +12,16 @@ interface ImageUploaderProps {
   userId: string
   onImagesChange: (images: UploadedImage[]) => void
   onError?: (message: string) => void
+  uploadImage?: (userId: string, file: File) => Promise<{ url: string | null; path: string | null; error: Error | null }>
 }
 
 export default function ImageUploader({
   images,
-  maxImages = 3,
+  maxImages = 5,
   userId,
   onImagesChange,
   onError,
+  uploadImage = uploadRepairImage,
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -37,7 +39,7 @@ export default function ImageUploader({
     const newImages: UploadedImage[] = []
 
     for (const file of filesToUpload) {
-      const { url, path, error } = await uploadRepairImage(userId, file)
+      const { url, path, error } = await uploadImage(userId, file)
       if (!error && url && path) {
         newImages.push({ url, path })
       } else {
@@ -64,11 +66,11 @@ export default function ImageUploader({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1 snap-x">
       {images.map((image, idx) => (
         <div
           key={image.path}
-          className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm"
+          className="relative group size-24 shrink-0 snap-start rounded-xl overflow-hidden border border-gray-200 shadow-sm sm:size-28"
         >
           <button
             type="button"
@@ -97,7 +99,7 @@ export default function ImageUploader({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="aspect-square rounded-xl border-2 border-dashed border-gray-300 hover:border-primary hover:bg-primary/5 flex flex-col items-center justify-center gap-1 transition-all group disabled:opacity-50"
+          className="size-24 shrink-0 snap-start rounded-xl border-2 border-dashed border-gray-300 hover:border-primary hover:bg-primary/5 flex flex-col items-center justify-center gap-1 transition-all group disabled:opacity-50 sm:size-28"
         >
           {uploading ? (
             <Icon name="progress_activity" className="text-gray-400 text-[28px] animate-spin" />
