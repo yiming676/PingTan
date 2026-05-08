@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { fetchMyTickets, fetchRecentBookings, updateOwnProfile, uploadProfileAvatar } from '@/lib/services/campus'
 import { isAdminRole, ROLE_LABELS, TICKET_STATUS_LABELS } from '@/lib/constants'
 import { isEmailIdentifier } from '@/lib/utils'
+import { MAX_IMAGE_UPLOAD_BYTES, MAX_IMAGE_UPLOAD_MB } from '@/lib/uploads'
 import BottomNav from '@/components/BottomNav'
 import Icon from '@/components/Icon'
 import Toast from '@/components/Toast'
@@ -68,8 +69,8 @@ export default function ProfilePage() {
       setToast({ message: '请选择图片文件', type: 'error' })
       return
     }
-    if (file.size > 3 * 1024 * 1024) {
-      setToast({ message: '头像图片不能超过 3MB', type: 'error' })
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+      setToast({ message: `头像图片不能超过 ${MAX_IMAGE_UPLOAD_MB}MB`, type: 'error' })
       return
     }
 

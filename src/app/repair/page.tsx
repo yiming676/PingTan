@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import {
   createRepairTicket,
+  deleteRepairTicket,
   deleteRepairImageFile,
   fetchMyTickets,
+  updateRepairTicket,
 } from '@/lib/services/campus'
 import { TICKET_STATUS_LABELS } from '@/lib/constants'
 import Header from '@/components/Header'
@@ -51,6 +53,17 @@ function getRepairImageGallery(images: RepairImage[] | undefined, label: string)
   }))
 }
 
+function getUploadedRepairImages(images: RepairImage[] | undefined): UploadedImage[] {
+  return (images ?? []).map((image) => ({
+    url: image.image_url,
+    path: image.storage_path,
+  }))
+}
+
+function canUserEditTicket(ticket: RepairTicket) {
+  return ticket.status === 'pending' || ticket.status === 'processing'
+}
+
 export default function RepairPage() {
   const { user } = useAuth()
 
@@ -58,6 +71,7 @@ export default function RepairPage() {
   const [location, setLocation] = useState('')
   const [description, setDescription] = useState('')
   const [images, setImages] = useState<UploadedImage[]>([])
+  const [editingTicketId, setEditingTicketId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [myTickets, setMyTickets] = useState<RepairTicket[]>([])
@@ -92,28 +106,37 @@ export default function RepairPage() {
 
     setSubmitting(true)
 
-    const { error, ticket } = await createRepairTicket({
-      userId: user.id,
-      faultType,
-      location,
-      description,
-      images,
-    })
+    const result = editingTicketId
+      ? await updateRepairTicket({
+        ticketId: editingTicketId,
+        faultType,
+        location,
+        description,
+        images,
+      })
+      : await createRepairTicket({
+        userId: user.id,
+        faultType,
+        location,
+        description,
+        images,
+      })
 
-    if (error || !ticket) {
-      if (!ticket) {
+    if (result.error || !result.ticket) {
+      if (!editingTicketId && !result.ticket) {
         await Promise.all(images.map((image) => deleteRepairImageFile(image.path)))
       }
-      setToast({ message: `提交失败：${error?.message || '未知错误'}`, type: 'error' })
+      setToast({ message: `${editingTicketId ? '修改' : '提交'}失败：${result.error?.message || '未知错误'}`, type: 'error' })
       setSubmitting(false)
       return
     }
 
-    setToast({ message: '报修提交成功！', type: 'success' })
+    setToast({ message: editingTicketId ? '报修信息已修改' : '报修提交成功！', type: 'success' })
     setFaultType(null)
     setLocation('')
     setDescription('')
     setImages([])
+    setEditingTicketId(null)
     setSubmitting(false)
     await loadTickets()
   }
@@ -127,6 +150,38 @@ export default function RepairPage() {
   const setPreviewImage = useCallback((image: PreviewImage) => {
     setPreviewGallery({ images: [image], index: 0 })
   }, [])
+
+  const handleEditTicket = (ticket: RepairTicket) => {
+    if (!canUserEditTicket(ticket)) return
+    setFaultType(ticket.fault_type)
+    setLocation(ticket.location)
+    setDescription(ticket.description)
+    setImages(getUploadedRepairImages(ticket.repair_images))
+    setEditingTicketId(ticket.id)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancelEdit = () => {
+    setFaultType(null)
+    setLocation('')
+    setDescription('')
+    setImages([])
+    setEditingTicketId(null)
+  }
+
+  const handleDeleteTicket = async (ticket: RepairTicket) => {
+    if (!canUserEditTicket(ticket)) return
+    const confirmed = window.confirm('确定删除这条报修申请吗？删除后无法恢复。')
+    if (!confirmed) return
+    const { error } = await deleteRepairTicket(ticket.id)
+    if (error) {
+      setToast({ message: `删除失败：${error.message}`, type: 'error' })
+      return
+    }
+    if (editingTicketId === ticket.id) handleCancelEdit()
+    setToast({ message: '报修申请已删除', type: 'success' })
+    await loadTickets()
+  }
 
   return (
     <div className="bg-background-light font-display text-gray-900 min-h-screen">
@@ -321,6 +376,24 @@ export default function RepairPage() {
                     <p className="text-[10px] text-gray-400 mt-2">
                       {new Date(ticket.created_at).toLocaleString('zh-CN')}
                     </p>
+                    {canUserEditTicket(ticket) && (
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEditTicket(ticket)}
+                          className="h-9 flex-1 rounded-lg bg-gray-100 text-xs font-bold text-gray-700"
+                        >
+                          编辑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTicket(ticket)}
+                          className="h-9 flex-1 rounded-lg bg-red-50 text-xs font-bold text-red-600"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -334,6 +407,14 @@ export default function RepairPage() {
       </main>
 
       <div className="fixed bottom-0 left-0 w-full bg-surface-light/80 backdrop-blur-xl border-t border-gray-200 p-4 pb-8 z-40">
+        {editingTicketId && (
+          <div className="mx-auto mb-3 flex max-w-lg items-center justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
+            <span>正在编辑报修申请</span>
+            <button type="button" onClick={handleCancelEdit} className="rounded-lg bg-white px-3 py-1 text-amber-700">
+              取消编辑
+            </button>
+          </div>
+        )}
         <button
           type="button"
           onClick={handleSubmit}
@@ -345,7 +426,7 @@ export default function RepairPage() {
           ) : (
             <Icon name="send" />
           )}
-          {submitting ? '提交中...' : '提交报修'}
+          {submitting ? '提交中...' : editingTicketId ? '保存修改' : '提交报修'}
         </button>
       </div>
     </div>

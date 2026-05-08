@@ -6,8 +6,10 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   completeRepairTicket,
   createNotification,
+  deleteCompletedRepairTicket,
   deleteMenu,
   deleteNotification,
+  deleteUser,
   fetchAdminBookings,
   fetchAdminMenus,
   fetchAdminNotifications,
@@ -17,6 +19,7 @@ import {
   updateMenuBookingStatus,
   updateProfileRole,
   updateTicketStatus,
+  updateUserStatus,
   uploadMenuImage,
   uploadRepairResultImage,
 } from '@/lib/services/campus'
@@ -32,6 +35,7 @@ import {
   TICKET_STATUS_OPTIONS,
 } from '@/lib/constants'
 import { toDateString } from '@/lib/utils'
+import { MAX_IMAGE_UPLOAD_BYTES, MAX_IMAGE_UPLOAD_MB } from '@/lib/uploads'
 import Header from '@/components/Header'
 import Icon from '@/components/Icon'
 import ImageUploader from '@/components/ImageUploader'
@@ -268,8 +272,8 @@ export default function AdminPage() {
       setToast({ message: '请上传图片文件', type: 'error' })
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setToast({ message: '菜单图片不能超过 5MB', type: 'error' })
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+      setToast({ message: `菜单图片不能超过 ${MAX_IMAGE_UPLOAD_MB}MB`, type: 'error' })
       return
     }
 
@@ -350,7 +354,13 @@ export default function AdminPage() {
     setActiveTab('canteen')
   }
 
+  const handleCancelMenuEdit = () => {
+    setMenuForm(getDefaultMenuForm())
+  }
+
   const handleDeleteMenu = async (id: string) => {
+    const confirmed = window.confirm('确定删除这份菜单吗？相关报名记录也会一并删除。')
+    if (!confirmed) return
     const { error } = await deleteMenu(id)
     if (error) {
       setToast({ message: `菜单删除失败：${error.message}`, type: 'error' })
@@ -418,6 +428,22 @@ export default function AdminPage() {
     setToast({ message: '维修结果已提交并已通知用户', type: 'success' })
   }
 
+  const handleDeleteCompletedTicket = async (ticket: RepairTicket) => {
+    if (ticket.status !== 'completed') {
+      setToast({ message: '只能删除已完成的维修工单', type: 'error' })
+      return
+    }
+    const confirmed = window.confirm('确定删除这条已完成维修工单吗？删除后无法恢复。')
+    if (!confirmed) return
+    const { error } = await deleteCompletedRepairTicket(ticket.id)
+    if (error) {
+      setToast({ message: `工单删除失败：${error.message}`, type: 'error' })
+      return
+    }
+    setToast({ message: '维修工单已删除', type: 'success' })
+    await reloadTickets()
+  }
+
   const handleCreateNotice = async () => {
     if (!noticeForm.title || !noticeForm.content) {
       setToast({ message: '请填写通知标题和内容', type: 'error' })
@@ -469,6 +495,31 @@ export default function AdminPage() {
     enabled: boolean
   ) => {
     await handleRoleChange(item.id, getRoleWithAdminRole(item.role, adminRole, enabled))
+  }
+
+  const handleUserStatusChange = async (item: Profile, isActive: boolean) => {
+    const confirmed = window.confirm(isActive ? '确定启用这个用户吗？' : '确定禁用这个用户吗？禁用后该用户将无法登录。')
+    if (!confirmed) return
+    const { error } = await updateUserStatus(item.id, isActive)
+    if (error) {
+      setToast({ message: `用户状态更新失败：${error.message}`, type: 'error' })
+      return
+    }
+    const { profiles: nextProfiles } = await fetchAdminProfiles()
+    setProfiles(nextProfiles)
+    setToast({ message: isActive ? '用户已启用' : '用户已禁用', type: 'success' })
+  }
+
+  const handleDeleteUser = async (item: Profile) => {
+    const confirmed = window.confirm(`确定永久删除用户“${item.name}”吗？该用户的资料、报名和报修记录都会被删除。`)
+    if (!confirmed) return
+    const { error } = await deleteUser(item.id)
+    if (error) {
+      setToast({ message: `用户删除失败：${error.message}`, type: 'error' })
+      return
+    }
+    setProfiles((current) => current.filter((profileItem) => profileItem.id !== item.id))
+    setToast({ message: '用户已删除', type: 'success' })
   }
 
   const bookingStats = useMemo(() => {
@@ -613,8 +664,8 @@ export default function AdminPage() {
               <textarea className="w-full rounded-xl bg-gray-50 p-3 text-sm outline-none border border-gray-100 resize-none" rows={3} placeholder="请输入菜品，支持逗号或换行分隔" value={menuForm.items} onChange={(e) => setMenuForm({ ...menuForm, items: e.target.value })} />
               <textarea className="hidden" rows={2} placeholder="菜单描述" value={menuForm.description} onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })} />
               <div className="flex gap-2">
-                <button type="button" onClick={handleSaveMenu} className="flex-1 h-11 rounded-xl bg-primary text-white text-sm font-bold">发布菜单</button>
-                <button type="button" onClick={() => setMenuForm(getDefaultMenuForm())} className="w-24 h-11 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold">清空</button>
+                <button type="button" onClick={handleSaveMenu} className="flex-1 h-11 rounded-xl bg-primary text-white text-sm font-bold">{menuForm.id ? '保存修改' : '发布菜单'}</button>
+                <button type="button" onClick={handleCancelMenuEdit} className="w-24 h-11 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold">{menuForm.id ? '取消编辑' : '清空'}</button>
               </div>
             </section>
 
@@ -778,6 +829,15 @@ export default function AdminPage() {
                     {!TICKET_STATUS_OPTIONS.includes(ticket.status as TicketStatus) && <option value={ticket.status}>{getTicketStatusLabel(ticket.status)}</option>}
                     {TICKET_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{TICKET_STATUS_LABELS[status]}</option>)}
                   </select>
+                  {ticket.status === 'completed' && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCompletedTicket(ticket)}
+                      className="h-9 rounded-lg bg-red-50 px-3 text-xs font-bold text-red-600"
+                    >
+                      删除
+                    </button>
+                  )}
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">{ticket.description}</p>
                 {ticket.repair_images && ticket.repair_images.length > 0 && (
@@ -918,33 +978,56 @@ export default function AdminPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-bold truncate">{item.name}</p>
                   <p className="text-xs text-gray-400 truncate">{item.email || item.phone}</p>
-                </div>
-                {item.role === 'super_admin' ? (
-                  <span className="shrink-0 rounded-lg bg-gray-50 px-3 py-2 text-xs font-bold text-gray-500">
-                    {ROLE_LABELS.super_admin}
+                  <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${item.is_active ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                    {item.is_active ? '已启用' : '已禁用'}
                   </span>
-                ) : (
-                  <div className="shrink-0 space-y-2 text-xs font-bold text-gray-600">
-                    <label className="flex items-center justify-end gap-2">
-                      <span>{ROLE_LABELS.canteen_admin}</span>
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
-                        checked={hasAssignableAdminRole(item.role, 'canteen_admin')}
-                        onChange={(e) => handleAdminRoleToggle(item, 'canteen_admin', e.target.checked)}
-                      />
-                    </label>
-                    <label className="flex items-center justify-end gap-2">
-                      <span>{ROLE_LABELS.repair_admin}</span>
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
-                        checked={hasAssignableAdminRole(item.role, 'repair_admin')}
-                        onChange={(e) => handleAdminRoleToggle(item, 'repair_admin', e.target.checked)}
-                      />
-                    </label>
-                  </div>
-                )}
+                </div>
+                <div className="shrink-0 flex flex-col items-end gap-2">
+                  {item.role === 'super_admin' ? (
+                    <span className="rounded-lg bg-gray-50 px-3 py-2 text-xs font-bold text-gray-500">
+                      {ROLE_LABELS.super_admin}
+                    </span>
+                  ) : (
+                    <div className="space-y-2 text-xs font-bold text-gray-600">
+                      <label className="flex items-center justify-end gap-2">
+                        <span>{ROLE_LABELS.canteen_admin}</span>
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-primary"
+                          checked={hasAssignableAdminRole(item.role, 'canteen_admin')}
+                          onChange={(e) => handleAdminRoleToggle(item, 'canteen_admin', e.target.checked)}
+                        />
+                      </label>
+                      <label className="flex items-center justify-end gap-2">
+                        <span>{ROLE_LABELS.repair_admin}</span>
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-primary"
+                          checked={hasAssignableAdminRole(item.role, 'repair_admin')}
+                          onChange={(e) => handleAdminRoleToggle(item, 'repair_admin', e.target.checked)}
+                        />
+                      </label>
+                    </div>
+                  )}
+                  {item.id !== profile?.id && (
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleUserStatusChange(item, !item.is_active)}
+                        className="h-8 rounded-lg bg-gray-100 px-2 text-xs font-bold text-gray-700"
+                      >
+                        {item.is_active ? '禁用' : '启用'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUser(item)}
+                        className="h-8 rounded-lg bg-red-50 px-2 text-xs font-bold text-red-600"
+                      >
+                        删除
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </section>

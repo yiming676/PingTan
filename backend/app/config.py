@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     upload_dir: str = "./uploads"
     public_base_url: str = "http://localhost:8000"
-    max_upload_bytes: int = 5 * 1024 * 1024
+    max_upload_bytes: int = 10 * 1024 * 1024
     auth_cookie_name: str = "pingtan_token"
     init_admin_phone: str | None = None
     init_admin_password: str | None = None

@@ -20,6 +20,7 @@ from app.schemas import (
     TicketCompleteIn,
     TicketStatusIn,
     UploadedImage,
+    UserStatusIn,
 )
 from app.serializers import booking_out, profile_out, ticket_out
 
@@ -58,6 +59,17 @@ def update_menu(menu_id: UUID, payload: MenuSaveIn, _: User = Depends(require_ro
     menu = db.query(MealMenu).filter(MealMenu.id == menu_id).first()
     if not menu:
         raise HTTPException(status_code=404, detail="Menu not found")
+    conflict = (
+        db.query(MealMenu)
+        .filter(
+            MealMenu.id != menu_id,
+            MealMenu.date == payload.date,
+            MealMenu.meal_type == payload.meal_type,
+        )
+        .first()
+    )
+    if conflict:
+        raise HTTPException(status_code=409, detail="A menu already exists for this date and meal type")
     for key, value in payload.model_dump().items():
         setattr(menu, key, value)
     db.commit()
@@ -81,6 +93,7 @@ def delete_menu(menu_id: UUID, _: User = Depends(require_roles("canteen_admin"))
     menu = db.query(MealMenu).filter(MealMenu.id == menu_id).first()
     if not menu:
         raise HTTPException(status_code=404, detail="Menu not found")
+    db.query(MealBooking).filter(MealBooking.menu_id == menu_id).delete(synchronize_session=False)
     db.delete(menu)
     db.commit()
     return {"ok": True}
@@ -153,6 +166,18 @@ def complete_ticket(ticket_id: UUID, payload: TicketCompleteIn, _: User = Depend
     return ticket_out(ticket)
 
 
+@router.delete("/tickets/{ticket_id}")
+def delete_completed_ticket(ticket_id: UUID, _: User = Depends(require_roles("repair_admin")), db: Session = Depends(get_db)):
+    ticket = db.query(RepairTicket).filter(RepairTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    if ticket.status != "completed":
+        raise HTTPException(status_code=400, detail="Only completed tickets can be deleted")
+    db.delete(ticket)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/notifications", response_model=list[NotificationOut])
 def admin_notifications(limit: int = 80, _: User = Depends(require_roles("canteen_admin", "repair_admin")), db: Session = Depends(get_db)):
     return db.query(Notification).order_by(Notification.created_at.desc()).limit(min(max(limit, 1), 200)).all()
@@ -200,3 +225,35 @@ def update_role(user_id: UUID, payload: RoleUpdateIn, current_user: User = Depen
     db.commit()
     db.refresh(profile)
     return profile_out(profile)
+
+
+@router.patch("/users/{user_id}/status", response_model=ProfileOut)
+def update_user_status(
+    user_id: UUID,
+    payload: UserStatusIn,
+    current_user: User = Depends(require_roles("super_admin")),
+    db: Session = Depends(get_db),
+):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot change your own account status")
+    user = db.query(User).options(joinedload(User.profile)).filter(User.id == user_id).first()
+    if not user or not user.profile:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_active = payload.is_active
+    user.disabled_at = None if payload.is_active else datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+    db.refresh(user.profile)
+    return profile_out(user.profile, user)
+
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: UUID, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    exists = db.query(User.id).filter(User.id == user_id).first()
+    if not exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.query(User).filter(User.id == user_id).delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True}

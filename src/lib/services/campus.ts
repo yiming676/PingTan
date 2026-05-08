@@ -1,4 +1,5 @@
 import { apiRequest, apiUpload } from '@/lib/api/client'
+import { prepareImageFileForUpload } from '@/lib/uploads'
 import type {
   BookingWithProfile,
   MealBooking,
@@ -177,6 +178,38 @@ export async function createRepairTicket(payload: {
   }
 }
 
+export async function updateRepairTicket(payload: {
+  ticketId: string
+  faultType: RepairTicket['fault_type']
+  location: string
+  description: string
+  images: UploadedImage[]
+}) {
+  try {
+    const ticket = await apiRequest<RepairTicket>(`/repair-tickets/${payload.ticketId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        fault_type: payload.faultType,
+        location: payload.location,
+        description: payload.description,
+        images: payload.images,
+      }),
+    })
+    return { ticket, error: null }
+  } catch (error) {
+    return { ticket: null, error: toError(error) }
+  }
+}
+
+export async function deleteRepairTicket(ticketId: string) {
+  try {
+    await apiRequest(`/repair-tickets/${ticketId}`, { method: 'DELETE' })
+    return { error: null }
+  } catch (error) {
+    return { error: toError(error) }
+  }
+}
+
 export async function deleteRepairImageFile(path: string) {
   try {
     await apiRequest(`/uploads/files/${encodeURI(path)}`, { method: 'DELETE' })
@@ -188,7 +221,8 @@ export async function deleteRepairImageFile(path: string) {
 
 export async function uploadRepairImage(_userId: string, file: File) {
   try {
-    const uploaded = await apiUpload<UploadedImage>('/uploads/repair-images', file)
+    const preparedFile = await prepareImageFileForUpload(file)
+    const uploaded = await apiUpload<UploadedImage>('/uploads/repair-images', preparedFile)
     return { url: uploaded.url, path: uploaded.path, error: null }
   } catch (error) {
     return { url: null, path: null, error: toError(error) }
@@ -197,7 +231,8 @@ export async function uploadRepairImage(_userId: string, file: File) {
 
 export async function uploadProfileAvatar(_userId: string, file: File) {
   try {
-    const uploaded = await apiUpload<UploadedImage>('/uploads/avatars', file)
+    const preparedFile = await prepareImageFileForUpload(file)
+    const uploaded = await apiUpload<UploadedImage>('/uploads/avatars', preparedFile)
     return { url: uploaded.url, error: null }
   } catch (error) {
     return { url: null, error: toError(error) }
@@ -206,7 +241,8 @@ export async function uploadProfileAvatar(_userId: string, file: File) {
 
 export async function uploadMenuImage(_userId: string, file: File) {
   try {
-    const uploaded = await apiUpload<UploadedImage>('/uploads/menu-images', file)
+    const preparedFile = await prepareImageFileForUpload(file)
+    const uploaded = await apiUpload<UploadedImage>('/uploads/menu-images', preparedFile)
     return { url: uploaded.url, path: uploaded.path, error: null }
   } catch (error) {
     return { url: null, path: null, error: toError(error) }
@@ -308,7 +344,8 @@ export async function updateTicketStatus(ticketId: string, status: TicketStatus)
 
 export async function uploadRepairResultImage(_userId: string, file: File) {
   try {
-    const uploaded = await apiUpload<UploadedImage>('/uploads/repair-results', file)
+    const preparedFile = await prepareImageFileForUpload(file)
+    const uploaded = await apiUpload<UploadedImage>('/uploads/repair-results', preparedFile)
     return { url: uploaded.url, path: uploaded.path, error: null }
   } catch (error) {
     return { url: null, path: null, error: toError(error) }
@@ -332,6 +369,15 @@ export async function completeRepairTicket(payload: {
         result_images: payload.resultImages ?? [],
       }),
     })
+    return { error: null }
+  } catch (error) {
+    return { error: toError(error) }
+  }
+}
+
+export async function deleteCompletedRepairTicket(ticketId: string) {
+  try {
+    await apiRequest(`/admin/tickets/${ticketId}`, { method: 'DELETE' })
     return { error: null }
   } catch (error) {
     return { error: toError(error) }
@@ -393,6 +439,27 @@ export async function updateProfileRole(userId: string, role: UserRole) {
       method: 'PATCH',
       body: JSON.stringify({ role }),
     })
+    return { error: null }
+  } catch (error) {
+    return { error: toError(error) }
+  }
+}
+
+export async function updateUserStatus(userId: string, isActive: boolean) {
+  try {
+    const profile = await apiRequest<Profile>(`/admin/users/${userId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active: isActive }),
+    })
+    return { profile, error: null }
+  } catch (error) {
+    return { profile: null, error: toError(error) }
+  }
+}
+
+export async function deleteUser(userId: string) {
+  try {
+    await apiRequest(`/admin/users/${userId}`, { method: 'DELETE' })
     return { error: null }
   } catch (error) {
     return { error: toError(error) }

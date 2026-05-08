@@ -29,6 +29,8 @@ class ProfileOut(BaseModel):
     phone: str | None = None
     role: UserRole
     avatar_url: str | None = None
+    is_active: bool = True
+    disabled_at: datetime | None = None
     created_at: datetime
 
 
@@ -122,6 +124,13 @@ class RepairTicketCreateIn(BaseModel):
     images: list[UploadedImage] = Field(default_factory=list, max_length=5)
 
 
+class RepairTicketUpdateIn(BaseModel):
+    fault_type: str
+    location: str
+    description: str
+    images: list[UploadedImage] = Field(default_factory=list, max_length=5)
+
+
 class RepairTicketOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -192,6 +201,10 @@ class TicketCompleteIn(BaseModel):
 
 class RoleUpdateIn(BaseModel):
     role: UserRole
+
+
+class UserStatusIn(BaseModel):
+    is_active: bool
 
 
 class UploadOut(BaseModel):

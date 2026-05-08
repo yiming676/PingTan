@@ -11,6 +11,8 @@ def profile_out(profile: Profile, user: User | None = None) -> dict:
         "phone": owner.phone if owner else None,
         "role": profile.role,
         "avatar_url": profile.avatar_url,
+        "is_active": owner.is_active if owner else True,
+        "disabled_at": owner.disabled_at if owner else None,
         "created_at": profile.created_at,
     }
 

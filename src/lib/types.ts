@@ -12,6 +12,8 @@ export interface Profile {
   phone: string | null
   role: UserRole
   avatar_url: string | null
+  is_active: boolean
+  disabled_at: string | null
   created_at: string
 }
 

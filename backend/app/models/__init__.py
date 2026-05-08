@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import JSON, CheckConstraint, Date, DateTime, ForeignKey, String, Text, Uuid, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, CheckConstraint, Date, DateTime, ForeignKey, String, Text, Uuid, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -24,6 +24,8 @@ class User(Base, TimestampMixin):
     phone: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     profile: Mapped["Profile"] = relationship(back_populates="user", cascade="all, delete-orphan", uselist=False)
 
