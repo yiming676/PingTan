@@ -66,7 +66,6 @@ export default function ProfilePage() {
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !user) return
-    if (!editingProfile) return
 
     if (!file.type.startsWith('image/')) {
       setToast({ message: '请选择图片文件', type: 'error' })
@@ -88,6 +87,7 @@ export default function ProfilePage() {
     }
 
     setUploadedAvatarUrl(url)
+    setSavedProfile((current) => current ? { ...current, avatar_url: url } : current)
     setToast({ message: '头像已更新', type: 'success' })
   }
 
@@ -164,9 +164,9 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => {
-              if (editingProfile) avatarInputRef.current?.click()
+              avatarInputRef.current?.click()
             }}
-            disabled={uploadingAvatar || !editingProfile}
+            disabled={uploadingAvatar}
             className="relative h-20 w-20 shrink-0 rounded-full bg-white border-2 border-white shadow-md flex items-center justify-center overflow-hidden disabled:opacity-70"
             aria-label="上传头像"
           >
