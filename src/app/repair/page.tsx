@@ -12,12 +12,13 @@ import {
 import { TICKET_STATUS_LABELS } from '@/lib/constants'
 import Header from '@/components/Header'
 import Icon from '@/components/Icon'
-import RepairTypeButton from '@/components/RepairTypeButton'
 import ImageUploader from '@/components/ImageUploader'
 import ImagePreviewModal from '@/components/ImagePreviewModal'
 import ImageStrip from '@/components/ImageStrip'
 import type { PreviewImage } from '@/components/ImagePreviewModal'
 import Toast from '@/components/Toast'
+import Dock from '@/components/react-bits/Dock'
+import PillNav from '@/components/react-bits/PillNav'
 import type { FaultType, RepairImage, RepairTicket, TicketStatus, UploadedImage } from '@/lib/types'
 
 const FAULT_TYPES: { type: FaultType; icon: string }[] = [
@@ -85,7 +86,10 @@ export default function RepairPage() {
   }, [user])
 
   useEffect(() => {
-    void loadTickets()
+    const timer = window.setTimeout(() => {
+      void loadTickets()
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [loadTickets])
 
   useEffect(() => {
@@ -199,17 +203,14 @@ export default function RepairPage() {
           <div className="flex justify-between items-baseline px-1">
             <h2 className="text-base font-bold text-gray-900">故障类型</h2>
           </div>
-          <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1 -mx-4 px-4 snap-x">
-            {FAULT_TYPES.map(({ type, icon }) => (
-              <RepairTypeButton
-                key={type}
-                type={type}
-                icon={icon}
-                selected={faultType === type}
-                onClick={() => setFaultType(type)}
-              />
-            ))}
-          </div>
+          <Dock
+            items={FAULT_TYPES.map(({ type, icon }) => ({
+              label: type,
+              active: faultType === type,
+              onClick: () => setFaultType(type),
+              icon: <Icon name={icon} className="text-[24px]" />,
+            }))}
+          />
         </section>
 
         <section className="bg-surface-light rounded-2xl shadow-soft p-5 border border-gray-100">
@@ -236,22 +237,12 @@ export default function RepairPage() {
                 <Icon name="search" className="text-gray-400 group-focus-within:text-primary transition-colors" />
               </div>
             </div>
-            <div className="flex gap-2 mt-1 flex-wrap">
-              {QUICK_LOCATIONS.map((loc) => (
-                <button
-                  key={loc}
-                  type="button"
-                  onClick={() => setLocation(loc)}
-                  className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                    location === loc
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {loc}
-                </button>
-              ))}
-            </div>
+            <PillNav
+              className="mt-1 pb-1"
+              items={QUICK_LOCATIONS.map((loc) => ({ key: loc, label: loc }))}
+              activeKey={location}
+              onSelect={setLocation}
+            />
           </label>
         </section>
 

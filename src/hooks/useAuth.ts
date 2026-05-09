@@ -57,7 +57,10 @@ export function useAuth() {
   }, [applyAuth])
 
   useEffect(() => {
-    void refresh()
+    const timer = window.setTimeout(() => {
+      void refresh()
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [refresh])
 
   const signIn = async (identifier: string, password: string) => {

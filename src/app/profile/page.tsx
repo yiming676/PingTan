@@ -29,12 +29,15 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!profile) return
-    setSavedProfile(profile)
-    setProfileForm({
-      name: profile.name || '',
-      phone: profile.phone || '',
-      email: profile.email || '',
-    })
+    const timer = window.setTimeout(() => {
+      setSavedProfile(profile)
+      setProfileForm({
+        name: profile.name || '',
+        phone: profile.phone || '',
+        email: profile.email || '',
+      })
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [profile])
 
   useEffect(() => {

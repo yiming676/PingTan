@@ -43,6 +43,7 @@ import ImagePreviewModal from '@/components/ImagePreviewModal'
 import ImageStrip from '@/components/ImageStrip'
 import type { PreviewImage } from '@/components/ImagePreviewModal'
 import Toast from '@/components/Toast'
+import AnimatedList from '@/components/react-bits/AnimatedList'
 import type {
   BookingWithProfile,
   MealMenu,
@@ -778,8 +779,11 @@ export default function AdminPage() {
 
             <section className="space-y-3">
               <h2 className="text-sm font-bold text-gray-500 px-1">最近菜单</h2>
-              {menus.map((menu) => (
-                <div key={menu.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <AnimatedList
+                items={menus}
+                maxHeightClassName="max-h-[560px]"
+                renderItem={(menu) => (
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold">{menu.date} · {MEAL_LABELS[menu.meal_type]}</p>
@@ -801,7 +805,8 @@ export default function AdminPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+                )}
+              />
             </section>
           </>
         )}
