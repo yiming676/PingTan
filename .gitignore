@@ -45,8 +45,6 @@ next-env.d.ts
 __pycache__/
 *.py[cod]
 
-@"
-
 # backend env / local files
 backend/.env
 backend/.env.*
@@ -84,4 +82,4 @@ docker-compose.override.yml
 # allow example env files
 !.env.example
 !.env.*.example
-"@ | Add-Content .gitignore
+!backend/.env.example

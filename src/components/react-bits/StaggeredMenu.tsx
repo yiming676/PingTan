@@ -92,7 +92,7 @@ export default function StaggeredMenu({
           className="absolute right-5 top-5 flex size-10 items-center justify-center rounded-full bg-slate-100 text-2xl leading-none text-slate-700"
           aria-label="关闭菜单"
         >
-          +
+          ×
         </button>
         <nav className="flex flex-col gap-3">
           {items.map((item, index) => {

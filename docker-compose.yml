@@ -16,8 +16,6 @@ services:
   backend:
     build:
       context: ./backend
-    env_file:
-      - ./backend/.env.example
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pingtan}:${POSTGRES_PASSWORD:-pingtan}@postgres:5432/${POSTGRES_DB:-pingtan}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-to-a-long-random-secret}
