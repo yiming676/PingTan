@@ -40,7 +40,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 
 ## Docker Deployment
 
-Set production-safe values in `backend/.env`, then run:
+Set production-safe values in the root `.env`, then run:
 
 ```bash
 docker compose up -d --build
