@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchMyTickets, fetchRecentBookings, updateOwnProfile, uploadProfileAvatar } from '@/lib/services/campus'
 import { getAdminButtonLabel, isAdminRole, ROLE_LABELS, TICKET_STATUS_LABELS } from '@/lib/constants'
-import { isEmailIdentifier } from '@/lib/utils'
+import { getMealPackageQuantity, isEmailIdentifier } from '@/lib/utils'
 import { MAX_IMAGE_UPLOAD_BYTES, MAX_IMAGE_UPLOAD_MB } from '@/lib/uploads'
 import BottomNav from '@/components/BottomNav'
 import Icon from '@/components/Icon'
@@ -261,7 +261,10 @@ export default function ProfilePage() {
                     <span className="text-sm font-medium text-gray-900">{getMealLabel(b.meal_type)}</span>
                     <span className="text-xs text-gray-400 ml-2">{b.date}</span>
                     {b.selected_items?.length > 0 && (
-                      <p className="mt-1 truncate text-xs text-gray-400">{b.selected_items.map((item) => `${item.name} x ${item.quantity}`).join('，')}</p>
+                      <>
+                        <span className="text-xs font-bold text-primary ml-2">· {getMealPackageQuantity(b)} 份</span>
+                        <p className="mt-1 truncate text-xs text-gray-400">{b.selected_items.map((item) => item.name).join('、')}</p>
+                      </>
                     )}
                   </div>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${b.status === 'booked' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>

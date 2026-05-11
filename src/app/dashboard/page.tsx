@@ -462,7 +462,7 @@ export default function DashboardPage() {
                               type="button"
                               disabled={loadingMeal === menu.id}
                               onClick={() => setBookingQuantities((prev) => {
-                                const prevVal = prev[mealType] ?? (booking ? bookedTotal : 0)
+                                const prevVal = prev[mealType] ?? (booking ? bookedTotal : 1)
                                 return { ...prev, [mealType]: Math.max(1, prevVal - 1) }
                               })}
                               className="size-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
@@ -476,7 +476,7 @@ export default function DashboardPage() {
                               type="button"
                               disabled={loadingMeal === menu.id}
                               onClick={() => setBookingQuantities((prev) => {
-                                const prevVal = prev[mealType] ?? (booking ? bookedTotal : 0)
+                                const prevVal = prev[mealType] ?? (booking ? bookedTotal : 1)
                                 return { ...prev, [mealType]: prevVal + 1 }
                               })}
                               className="size-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
