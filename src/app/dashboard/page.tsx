@@ -224,11 +224,10 @@ export default function DashboardPage() {
       setToast({ message: '取消失败：' + error.message, type: 'error' })
     } else {
       setToast({ message: '已取消报饭', type: 'success' })
-      setBookingQuantities((prev) => {
-        const next = { ...prev }
-        delete next[booking.meal_type]
-        return next
-      })
+      setBookingQuantities((prev) => ({
+        ...prev,
+        [booking.meal_type]: 0,
+      }))
       await refreshMenuData()
     }
     setLoadingMeal(null)
