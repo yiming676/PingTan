@@ -1,7 +1,7 @@
 'use client'
 
 import TextType from '@/components/react-bits/TextType'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import Icon from '@/components/Icon'
@@ -10,7 +10,7 @@ import { isEmailIdentifier, normalizePhoneDigits } from '@/lib/utils'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { signIn, signUp } = useAuth()
+  const { user, loading: authLoading, signIn, signUp } = useAuth()
   const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -23,6 +23,12 @@ export default function LoginPage() {
   const [regPassword, setRegPassword] = useState('')
   const [regName, setRegName] = useState('')
   const [regPhone, setRegPhone] = useState('')
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace('/dashboard')
+    }
+  }, [authLoading, user, router])
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -39,7 +45,7 @@ export default function LoginPage() {
     if (error) {
       setToast({ message: `登录失败：${error.message}`, type: 'error' })
     } else {
-      router.push('/dashboard')
+      router.replace('/dashboard')
     }
   }
 
@@ -83,8 +89,7 @@ export default function LoginPage() {
     if (error) {
       setToast({ message: `注册失败：${error.message}`, type: 'error' })
     } else {
-      setToast({ message: '注册成功', type: 'success' })
-      router.push('/dashboard')
+      router.replace('/dashboard')
     }
   }
 

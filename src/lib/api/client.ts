@@ -34,7 +34,11 @@ function redirectToLogin() {
   window.location.assign('/login')
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  options?: { redirectOnUnauthorized?: boolean },
+): Promise<T> {
   const headers = new Headers(init.headers)
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
   if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
@@ -52,7 +56,9 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if (!response.ok) {
     if (response.status === 401) {
       setAccessToken(null)
-      redirectToLogin()
+      if (options?.redirectOnUnauthorized !== false) {
+        redirectToLogin()
+      }
     }
     const message = typeof body === 'object' && body
       ? String((body as { detail?: unknown; error?: unknown }).detail || (body as { error?: unknown }).error || 'Request failed')

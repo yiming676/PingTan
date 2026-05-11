@@ -47,7 +47,10 @@ export function useAuth() {
 
   const refresh = useCallback(async () => {
     try {
-      const auth = await withTimeout(apiRequest<AuthResponse>('/auth/me'), 'Auth check timed out')
+      const auth = await withTimeout(
+        apiRequest<AuthResponse>('/auth/me', {}, { redirectOnUnauthorized: false }),
+        'Auth check timed out',
+      )
       applyAuth(auth)
     } catch {
       applyAuth(null)
