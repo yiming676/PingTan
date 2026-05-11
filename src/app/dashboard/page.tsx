@@ -428,7 +428,9 @@ export default function DashboardPage() {
               const isOpen = !!menu && menu.booking_status === 'open'
               const bookedTotal = getMealPackageQuantity(booking)
               const rawQty = bookingQuantities[mealType]
-              const wasCancelled = cancelledMealTypes[mealType]
+              const wasCancelled =
+                cancelledMealTypes[mealType] ||
+                bookings.some((b) => b.meal_type === mealType && b.status === 'cancelled')
               const displayQty = rawQty !== undefined ? rawQty : (booking ? bookedTotal : wasCancelled ? 0 : 1)
 
               return (
