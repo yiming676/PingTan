@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const [menus, setMenus] = useState<MealMenu[]>([])
   const [bookings, setBookings] = useState<MealBooking[]>([])
   const [bookingQuantities, setBookingQuantities] = useState<Record<string, number>>({})
+  const [cancelledMealTypes, setCancelledMealTypes] = useState<Record<string, boolean>>({})
   const [loadingMeal, setLoadingMeal] = useState<string | null>(null)
   const [menuDate, setMenuDate] = useState('')
   const [menuDateLabel, setMenuDateLabel] = useState('')
@@ -219,6 +220,16 @@ export default function DashboardPage() {
 
   const handleQuickCancel = async (booking: MealBooking) => {
     setLoadingMeal(booking.menu_id)
+
+    setBookingQuantities((prev) => ({
+      ...prev,
+      [booking.meal_type]: 0,
+    }))
+    setCancelledMealTypes((prev) => ({
+      ...prev,
+      [booking.meal_type]: true,
+    }))
+
     const { error } = await cancelMealBooking(booking.id)
     if (error) {
       setToast({ message: '取消失败：' + error.message, type: 'error' })
@@ -227,6 +238,10 @@ export default function DashboardPage() {
       setBookingQuantities((prev) => ({
         ...prev,
         [booking.meal_type]: 0,
+      }))
+      setCancelledMealTypes((prev) => ({
+        ...prev,
+        [booking.meal_type]: true,
       }))
       await refreshMenuData()
     }
@@ -413,7 +428,8 @@ export default function DashboardPage() {
               const isOpen = !!menu && menu.booking_status === 'open'
               const bookedTotal = getMealPackageQuantity(booking)
               const rawQty = bookingQuantities[mealType]
-              const displayQty = rawQty !== undefined ? rawQty : (booking ? bookedTotal : 1)
+              const wasCancelled = cancelledMealTypes[mealType]
+              const displayQty = rawQty !== undefined ? rawQty : (booking ? bookedTotal : wasCancelled ? 0 : 1)
 
               return (
                 <div
@@ -474,10 +490,17 @@ export default function DashboardPage() {
                             <button
                               type="button"
                               disabled={loadingMeal === menu.id}
-                              onClick={() => setBookingQuantities((prev) => {
-                                const prevVal = prev[mealType] ?? (booking ? bookedTotal : 1)
-                                return { ...prev, [mealType]: prevVal + 1 }
-                              })}
+                              onClick={() => {
+                                setCancelledMealTypes((prev) => {
+                                  const next = { ...prev }
+                                  delete next[mealType]
+                                  return next
+                                })
+                                setBookingQuantities((prev) => {
+                                  const prevVal = prev[mealType] ?? (booking ? bookedTotal : 0)
+                                  return { ...prev, [mealType]: prevVal + 1 }
+                                })
+                              }}
                               className="size-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
                             >
                               <Icon name="add" className="text-[16px]" />
