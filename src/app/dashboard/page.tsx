@@ -5,12 +5,13 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   bookMeal,
   cancelMealBooking,
+  fetchAdminBookings,
   fetchBookingsForDate,
   fetchMenusForDate,
   fetchUnreadNotificationCount,
 } from '@/lib/services/campus'
-import { getAdminButtonLabel, isAdminRole, MEAL_LABELS } from '@/lib/constants'
-import { getGreeting, formatDateChinese, toDateString } from '@/lib/utils'
+import { canManageCanteen, getAdminButtonLabel, isAdminRole, MEAL_LABELS } from '@/lib/constants'
+import { getGreeting, formatDateChinese, getMealPackageQuantity, toDateString } from '@/lib/utils'
 import BottomNav from '@/components/BottomNav'
 import Icon from '@/components/Icon'
 import NotificationPanel from '@/components/NotificationPanel'
@@ -36,6 +37,7 @@ export default function DashboardPage() {
   const [menuDate, setMenuDate] = useState('')
   const [menuDateLabel, setMenuDateLabel] = useState('')
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [adminStats, setAdminStats] = useState<{ meals: Record<string, number> } | null>(null)
 
   const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner']
 
@@ -146,6 +148,44 @@ export default function DashboardPage() {
     }
   }, [refreshMenuData, user])
 
+  // Initialize booking quantities from existing bookings (only if not user-set)
+  useEffect(() => {
+    setBookingQuantities((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const booking of bookings) {
+        if (booking.status !== 'booked') continue
+        if (next[booking.meal_type] !== undefined) continue
+        const qty = getMealPackageQuantity(booking)
+        if (qty > 0) {
+          next[booking.meal_type] = qty
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [bookings])
+
+  // Admin meal stats for canteen admins
+  useEffect(() => {
+    if (!canManageCanteen(profile?.role) || !menuDate) return
+    let active = true
+    const load = async () => {
+      const { bookings: adminBookings } = await fetchAdminBookings()
+      if (!active) return
+      const meals: Record<string, number> = { breakfast: 0, lunch: 0, dinner: 0 }
+      adminBookings
+        .filter((b) => b.status === 'booked' && b.date === menuDate)
+        .forEach((b) => {
+          const qty = b.selected_items?.[0]?.quantity ?? 0
+          meals[b.meal_type] = (meals[b.meal_type] ?? 0) + qty
+        })
+      setAdminStats({ meals })
+    }
+    void load()
+    return () => { active = false }
+  }, [profile?.role, menuDate])
+
   const menuByType = useMemo(() => new Map(menus.map((menu) => [menu.meal_type, menu])), [menus])
   const bookingByType = useMemo(() => {
     const result = new Map<MealType, MealBooking>()
@@ -167,7 +207,11 @@ export default function DashboardPage() {
       setToast({ message: '报饭失败：' + error.message, type: 'error' })
     } else {
       setToast({ message: '报饭成功！', type: 'success' })
-      setBookingQuantities((prev) => ({ ...prev, [menu.meal_type]: 0 }))
+      setBookingQuantities((prev) => {
+        const next = { ...prev }
+        delete next[menu.meal_type]
+        return next
+      })
       await refreshMenuData()
     }
     setLoadingMeal(null)
@@ -180,6 +224,11 @@ export default function DashboardPage() {
       setToast({ message: '取消失败：' + error.message, type: 'error' })
     } else {
       setToast({ message: '已取消报饭', type: 'success' })
+      setBookingQuantities((prev) => {
+        const next = { ...prev }
+        delete next[booking.meal_type]
+        return next
+      })
       await refreshMenuData()
     }
     setLoadingMeal(null)
@@ -318,6 +367,38 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {/* Admin meal stats card */}
+        {canManageCanteen(profile?.role) && adminStats && (
+          <section>
+            <button
+              type="button"
+              onClick={() => { window.location.href = '/admin' }}
+              className="w-full rounded-xl bg-white border border-primary/20 p-4 shadow-sm hover:shadow-md transition-shadow text-left"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-slate-500">报饭统计</h3>
+                <span className="text-[11px] text-gray-400">{menuDateLabel}</span>
+              </div>
+              {Object.values(adminStats.meals).every((v) => v === 0) ? (
+                <p className="text-xs text-gray-400">暂无报饭数据</p>
+              ) : (
+                <div>
+                  <p className="text-[11px] text-gray-400 mb-2">
+                    截止 {String(new Date().getHours()).padStart(2, '0')}:{String(new Date().getMinutes()).padStart(2, '0')}
+                  </p>
+                  <div className="flex gap-3">
+                    {MEAL_TYPES.map((mt) => (
+                      <span key={mt} className="text-sm font-bold text-gray-900">
+                        {MEAL_LABELS[mt]} {adminStats.meals[mt] ?? 0} 份
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </button>
+          </section>
+        )}
+
         {/* Quick Meal Ordering */}
         <section>
           <div className="flex items-center justify-between mb-3 px-1">
@@ -331,8 +412,9 @@ export default function DashboardPage() {
               const menu = menuByType.get(mealType)
               const booking = bookingByType.get(mealType) ?? null
               const isOpen = !!menu && menu.booking_status === 'open'
-              const bookedTotal = booking?.selected_items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
-              const qty = bookingQuantities[mealType] ?? 0
+              const bookedTotal = getMealPackageQuantity(booking)
+              const rawQty = bookingQuantities[mealType]
+              const displayQty = rawQty !== undefined && rawQty > 0 ? rawQty : (booking ? bookedTotal : 1)
 
               return (
                 <div
@@ -373,33 +455,30 @@ export default function DashboardPage() {
 
                   {menu && (
                     <div className="mt-3 flex items-center gap-2">
-                      {booking ? (
-                        <button
-                          type="button"
-                          disabled={loadingMeal === booking.menu_id}
-                          onClick={() => handleQuickCancel(booking)}
-                          className="h-8 flex-1 rounded-lg border border-red-100 bg-red-50 text-xs font-bold text-red-500 disabled:opacity-50"
-                        >
-                          取消报饭
-                        </button>
-                      ) : isOpen ? (
+                      {isOpen ? (
                         <>
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
                               disabled={loadingMeal === menu.id}
-                              onClick={() => setBookingQuantities((prev) => ({ ...prev, [mealType]: Math.max(0, (prev[mealType] ?? 0) - 1) }))}
+                              onClick={() => setBookingQuantities((prev) => {
+                                const prevVal = prev[mealType] ?? (booking ? bookedTotal : 0)
+                                return { ...prev, [mealType]: Math.max(1, prevVal - 1) }
+                              })}
                               className="size-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
                             >
                               <Icon name="remove" className="text-[16px]" />
                             </button>
                             <span className="w-6 text-center text-sm font-bold text-gray-900">
-                              {qty === 0 ? 1 : qty}
+                              {displayQty}
                             </span>
                             <button
                               type="button"
                               disabled={loadingMeal === menu.id}
-                              onClick={() => setBookingQuantities((prev) => ({ ...prev, [mealType]: (prev[mealType] ?? 0) + 1 }))}
+                              onClick={() => setBookingQuantities((prev) => {
+                                const prevVal = prev[mealType] ?? (booking ? bookedTotal : 0)
+                                return { ...prev, [mealType]: prevVal + 1 }
+                              })}
                               className="size-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
                             >
                               <Icon name="add" className="text-[16px]" />
@@ -411,8 +490,18 @@ export default function DashboardPage() {
                             onClick={() => handleQuickBook(menu)}
                             className="h-8 flex-1 rounded-lg bg-primary text-xs font-bold text-white disabled:bg-gray-300"
                           >
-                            {loadingMeal === menu.id ? '提交中...' : `报饭（${qty === 0 ? 1 : qty} 份）`}
+                            {loadingMeal === menu.id ? '提交中...' : `${booking ? '修改' : ''}报饭（${displayQty} 份）`}
                           </button>
+                          {booking && (
+                            <button
+                              type="button"
+                              disabled={loadingMeal === booking.menu_id}
+                              onClick={() => handleQuickCancel(booking)}
+                              className="h-8 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-bold text-red-500 disabled:opacity-50"
+                            >
+                              取消
+                            </button>
+                          )}
                         </>
                       ) : (
                         <span className="text-[11px] text-gray-400">已停止报饭</span>

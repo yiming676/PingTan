@@ -118,6 +118,15 @@ export function normalizePhoneDigits(phone: string): string {
   return digits
 }
 
+/**
+ * 从 booking 中提取套餐整体份数（取第一项的 quantity，而非求和）
+ */
+export function getMealPackageQuantity(
+  booking: { selected_items?: { quantity: number }[] } | null | undefined,
+): number {
+  return booking?.selected_items?.[0]?.quantity ?? 0
+}
+
 export function formatPhoneForDisplay(phone: string): string {
   const digits = normalizePhoneDigits(phone)
   if (/^1\d{10}$/.test(digits)) return digits

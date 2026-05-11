@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { MEAL_LABELS } from '@/lib/constants'
-import { getWeekDates, getWeekdayName, toDateString, formatDateShort } from '@/lib/utils'
+import { getMealPackageQuantity, getWeekDates, getWeekdayName, toDateString, formatDateShort } from '@/lib/utils'
 import {
   bookMeal,
   cancelMealBooking,
@@ -199,7 +199,7 @@ export default function CanteenPage() {
             const booking = bookingByType.get(mealType) ?? null
             const isOpen = !!menu && menu.booking_status === 'open'
             const selected = booking?.selected_items ?? []
-            const total = selected.reduce((sum, item) => sum + item.quantity, 0)
+            const total = getMealPackageQuantity(booking)
 
             return (
               <section

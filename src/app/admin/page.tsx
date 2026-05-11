@@ -34,7 +34,7 @@ import {
   TICKET_STATUS_LABELS,
   TICKET_STATUS_OPTIONS,
 } from '@/lib/constants'
-import { toDateString } from '@/lib/utils'
+import { getMealPackageQuantity, toDateString } from '@/lib/utils'
 import { MAX_IMAGE_UPLOAD_BYTES, MAX_IMAGE_UPLOAD_MB } from '@/lib/uploads'
 import Header from '@/components/Header'
 import Icon from '@/components/Icon'
@@ -566,6 +566,10 @@ export default function AdminPage() {
     ))
   ), [bookings, selectedBookingDate, selectedBookingMeal])
 
+  const selectedMealPackageTotal = useMemo(() => (
+    selectedMealBookings.reduce((sum, booking) => sum + getMealPackageQuantity(booking), 0)
+  ), [selectedMealBookings])
+
   const selectedMealItemTotals = useMemo(() => {
     const totals = new Map<string, number>()
     selectedMealBookings.forEach((booking) => {
@@ -712,6 +716,11 @@ export default function AdminPage() {
                       </button>
                     ))}
                   </div>
+                  {selectedMealBookings.length > 0 && (
+                    <div className="mb-3 rounded-lg bg-primary/10 px-3 py-2 text-xs font-bold text-primary">
+                      总份数 {selectedMealPackageTotal} 份 · {selectedMealBookings.length} 人
+                    </div>
+                  )}
                   {selectedMealItemTotals.length > 0 && (
                     <div className="mb-3 rounded-lg bg-primary/5 p-3">
                       <p className="mb-2 text-xs font-bold text-primary">菜品汇总</p>
@@ -727,7 +736,7 @@ export default function AdminPage() {
                   ) : (
                     <div className="space-y-2">
                       {selectedMealBookings.map((booking) => {
-                        const total = booking.selected_items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
+                        const total = getMealPackageQuantity(booking)
                         return (
                           <div key={booking.id} className="rounded-lg bg-gray-50 px-3 py-2">
                             <div className="flex items-center justify-between gap-3">
