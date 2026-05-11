@@ -49,3 +49,9 @@ export function canManageNotifications(role?: UserRole | null): boolean {
 export function canManageUsers(role?: UserRole | null): boolean {
   return role === 'super_admin'
 }
+
+export function getAdminButtonLabel(role?: UserRole | null): string {
+  if (role === 'canteen_admin') return '发布菜单'
+  if (role === 'repair_admin') return '查看报修申请'
+  return '管理后台'
+}

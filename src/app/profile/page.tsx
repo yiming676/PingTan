@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { fetchMyTickets, fetchRecentBookings, updateOwnProfile, uploadProfileAvatar } from '@/lib/services/campus'
-import { isAdminRole, ROLE_LABELS, TICKET_STATUS_LABELS } from '@/lib/constants'
+import { getAdminButtonLabel, isAdminRole, ROLE_LABELS, TICKET_STATUS_LABELS } from '@/lib/constants'
 import { isEmailIdentifier } from '@/lib/utils'
 import { MAX_IMAGE_UPLOAD_BYTES, MAX_IMAGE_UPLOAD_MB } from '@/lib/uploads'
 import BottomNav from '@/components/BottomNav'
@@ -302,7 +302,7 @@ export default function ProfilePage() {
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white font-semibold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
           >
             <Icon name="admin_panel_settings" className="text-[20px]" />
-            管理后台
+            {getAdminButtonLabel(currentProfile?.role)}
           </button>
         )}
 

@@ -2,16 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { fetchUnreadNotificationCount } from '@/lib/services/campus'
-import { isAdminRole } from '@/lib/constants'
-import { getGreeting, formatDateChinese } from '@/lib/utils'
+import {
+  bookMeal,
+  cancelMealBooking,
+  fetchBookingsForDate,
+  fetchMenusForDate,
+  fetchUnreadNotificationCount,
+} from '@/lib/services/campus'
+import { getAdminButtonLabel, isAdminRole, MEAL_LABELS } from '@/lib/constants'
+import { getGreeting, formatDateChinese, toDateString } from '@/lib/utils'
 import BottomNav from '@/components/BottomNav'
 import Icon from '@/components/Icon'
 import NotificationPanel from '@/components/NotificationPanel'
+import Toast from '@/components/Toast'
 import MagicBento, { type MagicBentoItem } from '@/components/react-bits/MagicBento'
 import ShinyText from '@/components/react-bits/ShinyText'
 import SplitText from '@/components/react-bits/SplitText'
 import StaggeredMenu, { type StaggeredMenuItem } from '@/components/react-bits/StaggeredMenu'
+import type { MealMenu, MealBooking, MealType, SelectedMealItem } from '@/lib/types'
 
 export default function DashboardPage() {
   const { user, profile, loading } = useAuth()
@@ -19,6 +27,17 @@ export default function DashboardPage() {
   const [showBellMenu, setShowBellMenu] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [autoOpenedUserId, setAutoOpenedUserId] = useState<string | null>(null)
+
+  // Quick meal ordering
+  const [menus, setMenus] = useState<MealMenu[]>([])
+  const [bookings, setBookings] = useState<MealBooking[]>([])
+  const [bookingQuantities, setBookingQuantities] = useState<Record<string, number>>({})
+  const [loadingMeal, setLoadingMeal] = useState<string | null>(null)
+  const [menuDate, setMenuDate] = useState('')
+  const [menuDateLabel, setMenuDateLabel] = useState('')
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner']
 
   const refreshUnreadCount = useCallback(async () => {
     if (!user) {
@@ -61,6 +80,111 @@ export default function DashboardPage() {
     }
   }, [refreshUnreadCount, user])
 
+  // Quick meal: determine which date to show (tomorrow if published, else today)
+  const refreshMenuData = useCallback(async () => {
+    if (!user) return
+
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowStr = toDateString(tomorrow)
+    const todayStr = toDateString(today)
+
+    const { menus: tomorrowMenus } = await fetchMenusForDate(tomorrowStr)
+    const date = tomorrowMenus.length > 0 ? tomorrowStr : todayStr
+
+    const [menuResult, bookingResult] = await Promise.all([
+      date === tomorrowStr ? { menus: tomorrowMenus, error: null } : fetchMenusForDate(date),
+      fetchBookingsForDate(user.id, date),
+    ])
+
+    setMenuDate(date)
+    setMenuDateLabel(date === tomorrowStr ? '明日菜单' : '今日菜单')
+    setMenus(menuResult.menus)
+    setBookings(bookingResult.bookings)
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    let active = true
+
+    const load = async () => {
+      const today = new Date()
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      const tomorrowStr = toDateString(tomorrow)
+      const todayStr = toDateString(today)
+
+      const { menus: tomorrowMenus } = await fetchMenusForDate(tomorrowStr)
+      const date = tomorrowMenus.length > 0 ? tomorrowStr : todayStr
+
+      const [menuResult, bookingResult] = await Promise.all([
+        date === tomorrowStr ? { menus: tomorrowMenus, error: null } : fetchMenusForDate(date),
+        fetchBookingsForDate(user.id, date),
+      ])
+
+      if (!active) return
+      setMenuDate(date)
+      setMenuDateLabel(date === tomorrowStr ? '明日菜单' : '今日菜单')
+      setMenus(menuResult.menus)
+      setBookings(bookingResult.bookings)
+    }
+
+    void load()
+    return () => {
+      active = false
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const intervalId = window.setInterval(() => {
+      void refreshMenuData()
+    }, 30000)
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [refreshMenuData, user])
+
+  const menuByType = useMemo(() => new Map(menus.map((menu) => [menu.meal_type, menu])), [menus])
+  const bookingByType = useMemo(() => {
+    const result = new Map<MealType, MealBooking>()
+    bookings
+      .filter((booking) => booking.status === 'booked')
+      .forEach((booking) => result.set(booking.meal_type, booking))
+    return result
+  }, [bookings])
+
+  const handleQuickBook = async (menu: MealMenu) => {
+    if (!user) return
+    const qty = bookingQuantities[menu.meal_type] ?? 1
+    if (qty <= 0) return
+
+    setLoadingMeal(menu.id)
+    const items: SelectedMealItem[] = menu.items.map((item) => ({ name: item, quantity: qty }))
+    const { error } = await bookMeal(user.id, menu, menuDate, items)
+    if (error) {
+      setToast({ message: '报饭失败：' + error.message, type: 'error' })
+    } else {
+      setToast({ message: '报饭成功！', type: 'success' })
+      setBookingQuantities((prev) => ({ ...prev, [menu.meal_type]: 0 }))
+      await refreshMenuData()
+    }
+    setLoadingMeal(null)
+  }
+
+  const handleQuickCancel = async (booking: MealBooking) => {
+    setLoadingMeal(booking.menu_id)
+    const { error } = await cancelMealBooking(booking.id)
+    if (error) {
+      setToast({ message: '取消失败：' + error.message, type: 'error' })
+    } else {
+      setToast({ message: '已取消报饭', type: 'success' })
+      await refreshMenuData()
+    }
+    setLoadingMeal(null)
+  }
+
   const appItems = useMemo<MagicBentoItem[]>(() => {
     const items: MagicBentoItem[] = [
       {
@@ -91,8 +215,9 @@ export default function DashboardPage() {
     ]
 
     if (isAdminRole(profile?.role)) {
+      const label = getAdminButtonLabel(profile?.role)
       items.push({
-        title: '管理后台',
+        title: label,
         description: '处理菜单、报修、通知和用户数据',
         label: 'ADMIN',
         href: '/admin',
@@ -117,7 +242,7 @@ export default function DashboardPage() {
     ]
 
     if (isAdminRole(profile?.role)) {
-      items.splice(3, 0, { label: '管理后台', ariaLabel: '进入管理后台', link: '/admin' })
+      items.splice(3, 0, { label: getAdminButtonLabel(profile?.role), ariaLabel: '进入管理后台', link: '/admin' })
     }
 
     return items
@@ -139,6 +264,8 @@ export default function DashboardPage() {
 
   return (
     <div className="relative min-h-screen w-full flex flex-col pb-28 max-w-md mx-auto overflow-x-hidden shadow-2xl bg-background-light">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       <header className="flex items-center justify-between px-6 pt-12 pb-4 sticky top-0 z-20 bg-background-light/95 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
@@ -188,6 +315,113 @@ export default function DashboardPage() {
                 <Icon name="person" className="text-slate-400 text-3xl" />
               )}
             </div>
+          </div>
+        </section>
+
+        {/* Quick Meal Ordering */}
+        <section>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h3 className="text-sm font-bold text-slate-500">{menuDateLabel}</h3>
+            <button onClick={() => { window.location.href = '/canteen' }} className="text-xs text-primary font-bold">
+              查看完整菜单
+            </button>
+          </div>
+          <div className="space-y-3">
+            {MEAL_TYPES.map((mealType) => {
+              const menu = menuByType.get(mealType)
+              const booking = bookingByType.get(mealType) ?? null
+              const isOpen = !!menu && menu.booking_status === 'open'
+              const bookedTotal = booking?.selected_items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0
+              const qty = bookingQuantities[mealType] ?? 0
+
+              return (
+                <div
+                  key={mealType}
+                  className={`rounded-xl border bg-white p-3 shadow-sm ${
+                    booking ? 'border-primary/25' : 'border-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon
+                        name={mealType === 'breakfast' ? 'wb_twilight' : mealType === 'lunch' ? 'wb_sunny' : 'dark_mode'}
+                        className="text-primary text-[18px]"
+                      />
+                      <span className="text-sm font-bold text-gray-900">{MEAL_LABELS[mealType]}</span>
+                      {isOpen && (
+                        <span className="text-[11px] text-gray-400">可报饭</span>
+                      )}
+                      {booking && (
+                        <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-[11px] font-bold text-green-700">
+                          已报 {bookedTotal} 份
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {menu?.items?.length ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {menu.items.map((item) => (
+                        <span key={item} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-[11px] text-gray-400">暂无菜单</p>
+                  )}
+
+                  {menu && (
+                    <div className="mt-3 flex items-center gap-2">
+                      {booking ? (
+                        <button
+                          type="button"
+                          disabled={loadingMeal === booking.menu_id}
+                          onClick={() => handleQuickCancel(booking)}
+                          className="h-8 flex-1 rounded-lg border border-red-100 bg-red-50 text-xs font-bold text-red-500 disabled:opacity-50"
+                        >
+                          取消报饭
+                        </button>
+                      ) : isOpen ? (
+                        <>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={loadingMeal === menu.id}
+                              onClick={() => setBookingQuantities((prev) => ({ ...prev, [mealType]: Math.max(0, (prev[mealType] ?? 0) - 1) }))}
+                              className="size-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
+                            >
+                              <Icon name="remove" className="text-[16px]" />
+                            </button>
+                            <span className="w-6 text-center text-sm font-bold text-gray-900">
+                              {qty === 0 ? 1 : qty}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={loadingMeal === menu.id}
+                              onClick={() => setBookingQuantities((prev) => ({ ...prev, [mealType]: (prev[mealType] ?? 0) + 1 }))}
+                              className="size-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
+                            >
+                              <Icon name="add" className="text-[16px]" />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={loadingMeal === menu.id}
+                            onClick={() => handleQuickBook(menu)}
+                            className="h-8 flex-1 rounded-lg bg-primary text-xs font-bold text-white disabled:bg-gray-300"
+                          >
+                            {loadingMeal === menu.id ? '提交中...' : `报饭（${qty === 0 ? 1 : qty} 份）`}
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[11px] text-gray-400">已停止报饭</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </section>
 

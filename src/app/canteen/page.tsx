@@ -29,7 +29,7 @@ export default function CanteenPage() {
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [activeMenu, setActiveMenu] = useState<MealMenu | null>(null)
-  const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [overallQuantity, setOverallQuantity] = useState(0)
 
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate])
   const dateStr = toDateString(selectedDate)
@@ -80,32 +80,19 @@ export default function CanteenPage() {
     }
   }, [refreshData, user])
 
-  // 预订
-  const selectedItems = useMemo<SelectedMealItem[]>(() => (
-    Object.entries(quantities)
-      .map(([name, quantity]) => ({ name, quantity }))
-      .filter((item) => item.quantity > 0)
-  ), [quantities])
+  // 预订 — 整体套餐数量
+  const selectedItems = useMemo<SelectedMealItem[]>(() => {
+    if (overallQuantity <= 0 || !activeMenu) return []
+    return activeMenu.items.map((item) => ({ name: item, quantity: overallQuantity }))
+  }, [overallQuantity, activeMenu])
 
-  const selectedTotal = selectedItems.reduce((sum, item) => sum + item.quantity, 0)
+  const selectedTotal = overallQuantity
 
   const openBookingPanel = (menu: MealMenu) => {
     const booking = bookingByType.get(menu.meal_type)
-    const nextQuantities: Record<string, number> = {}
-    if (booking?.selected_items?.length) {
-      booking.selected_items.forEach((item) => {
-        nextQuantities[item.name] = item.quantity
-      })
-    }
-    setQuantities(nextQuantities)
+    const prevQuantity = booking?.selected_items?.[0]?.quantity ?? 0
+    setOverallQuantity(prevQuantity)
     setActiveMenu(menu)
-  }
-
-  const changeQuantity = (name: string, delta: number) => {
-    setQuantities((current) => ({
-      ...current,
-      [name]: Math.max(0, (current[name] ?? 0) + delta),
-    }))
   }
 
   const handleBook = async (menu: MealMenu, items: SelectedMealItem[] = []) => {
@@ -250,7 +237,7 @@ export default function CanteenPage() {
 
                 {selected.length > 0 && (
                   <div className="mt-3 rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary">
-                    {selected.map((item) => `${item.name} x ${item.quantity}`).join('，')}
+                    已选 {total} 份：{menu?.items?.join('、')}
                   </div>
                 )}
 
@@ -316,20 +303,22 @@ export default function CanteenPage() {
             </div>
 
             <div className="mt-4 space-y-2">
-              {activeMenu.items.map((item) => (
-                <div key={item} className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3">
-                  <span className="min-w-0 flex-1 break-words text-sm font-bold text-gray-900">{item}</span>
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => changeQuantity(item, -1)} className="size-8 rounded-full bg-white text-primary shadow-sm">
-                      <Icon name="remove" className="text-[18px]" />
-                    </button>
-                    <span className="w-6 text-center text-sm font-bold text-gray-900">{quantities[item] ?? 0}</span>
-                    <button type="button" onClick={() => changeQuantity(item, 1)} className="size-8 rounded-full bg-primary text-white shadow-sm">
-                      <Icon name="add" className="text-[18px]" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+              <div className="flex flex-wrap gap-2">
+                {activeMenu.items.map((item) => (
+                  <span key={item} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                    {item}
+                  </span>
+                ))}
+              </div>
+              <div className="flex items-center justify-center gap-4 rounded-xl bg-gray-50 p-3">
+                <button type="button" onClick={() => setOverallQuantity((c) => Math.max(0, c - 1))} className="size-8 rounded-full bg-white text-primary shadow-sm">
+                  <Icon name="remove" className="text-[18px]" />
+                </button>
+                <span className="min-w-[2rem] text-center text-lg font-bold text-gray-900">{overallQuantity}</span>
+                <button type="button" onClick={() => setOverallQuantity((c) => c + 1)} className="size-8 rounded-full bg-primary text-white shadow-sm">
+                  <Icon name="add" className="text-[18px]" />
+                </button>
+              </div>
             </div>
 
             <button
