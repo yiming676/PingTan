@@ -414,7 +414,7 @@ export default function DashboardPage() {
               const isOpen = !!menu && menu.booking_status === 'open'
               const bookedTotal = getMealPackageQuantity(booking)
               const rawQty = bookingQuantities[mealType]
-              const displayQty = rawQty !== undefined && rawQty > 0 ? rawQty : (booking ? bookedTotal : 1)
+              const displayQty = rawQty !== undefined ? rawQty : (booking ? bookedTotal : 1)
 
               return (
                 <div
@@ -463,7 +463,7 @@ export default function DashboardPage() {
                               disabled={loadingMeal === menu.id}
                               onClick={() => setBookingQuantities((prev) => {
                                 const prevVal = prev[mealType] ?? (booking ? bookedTotal : 1)
-                                return { ...prev, [mealType]: Math.max(1, prevVal - 1) }
+                                return { ...prev, [mealType]: Math.max(0, prevVal - 1) }
                               })}
                               className="size-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
                             >
@@ -474,14 +474,11 @@ export default function DashboardPage() {
                             </span>
                             <button
                               type="button"
-                              disabled={loadingMeal === menu.id}
-                              onClick={() => setBookingQuantities((prev) => {
-                                const prevVal = prev[mealType] ?? (booking ? bookedTotal : 1)
-                                return { ...prev, [mealType]: prevVal + 1 }
-                              })}
-                              className="size-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center"
+                              disabled={loadingMeal === menu.id || displayQty === 0}
+                              onClick={() => handleQuickBook(menu)}
+                              className="h-8 flex-1 rounded-lg bg-primary text-xs font-bold text-white disabled:bg-gray-300"
                             >
-                              <Icon name="add" className="text-[16px]" />
+                              {loadingMeal === menu.id ? '提交中...' : displayQty === 0 ? '请选择份数' : `${booking ? '修改' : ''}报饭（${displayQty} 份）`}
                             </button>
                           </div>
                           <button
